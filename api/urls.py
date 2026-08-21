@@ -5,6 +5,8 @@ from .views import (
     profile,
     department_list_create,
     department_detail,
+    doctor_list_create,
+    doctor_detail,
 )
 
 from rest_framework_simplejwt.views import (
@@ -51,5 +53,18 @@ urlpatterns = [
         'departments/<int:pk>/',
         department_detail,
         name='department_detail'
+    ),
+
+    #Doctors
+    path(
+        'doctors/',
+        doctor_list_create,
+        name='doctor_list_create'
+    ),
+
+    path(
+        'doctors/<int:pk>/',
+        doctor_detail,
+        name='doctor_detail'
     ),
 ]
