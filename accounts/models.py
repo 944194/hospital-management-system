@@ -12,9 +12,19 @@ class User(AbstractUser):
         PATIENT = 'PATIENT', 'Patient'
         RECEPTIONIST = 'RECEPTIONIST', 'Receptionist'
 
-    email = models.EmailField(blank=True)
+    email = models.EmailField(
+        null=True,
+        blank=True
+    )
     mobile_number = models.CharField(
         max_length=15,
+        null=True,
+        blank=True
+    )
+    aadhaar_number = models.CharField(
+        max_length=12,
+        unique=True,
+        null=True,
         blank=True
     )
     role = models.CharField(

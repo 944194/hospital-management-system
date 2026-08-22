@@ -2,6 +2,7 @@ from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from departments.models import Department
 from doctors.models import DoctorProfile
+from patients.models import PatientProfile
 
 User = get_user_model()
 
@@ -19,6 +20,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             'username',
             'email',
             'mobile_number',
+            'aadhaar_number',
             'password',
             'first_name',
             'last_name',
@@ -47,6 +49,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'username',
             'email',
             'mobile_number',
+            'aadhaar_number',
             'first_name',
             'last_name',
             'role',
@@ -95,6 +98,11 @@ class DoctorSerializer(serializers.ModelSerializer):
         read_only=True
     )
 
+    aadhaar_number = serializers.CharField(
+        required=False,
+        allow_blank=True
+    )
+
     department_name = serializers.CharField(
         source='department.name',
         read_only=True
@@ -109,6 +117,7 @@ class DoctorSerializer(serializers.ModelSerializer):
             'last_name',
             'email',
             'mobile_number',
+            'aadhaar_number',
             'department',
             'department_name',
             'specialization',
@@ -148,6 +157,10 @@ class DoctorCreateSerializer(serializers.ModelSerializer):
         required=False,
         allow_blank=True
     )
+    aadhaar_number = serializers.CharField(
+        required=False,
+        allow_blank=True
+    )
 
     class Meta:
         model = DoctorProfile
@@ -158,6 +171,7 @@ class DoctorCreateSerializer(serializers.ModelSerializer):
             'last_name',
             'email',
             'mobile_number',
+            'aadhaar_number',
             'department',
             'specialization',
             'qualification',
@@ -191,6 +205,10 @@ class DoctorUpdateSerializer(serializers.ModelSerializer):
         required=False,
         allow_blank=True
     )
+    aadhaar_number = serializers.CharField(
+        required=False,
+        allow_blank=True
+    )
 
     class Meta:
         model = DoctorProfile
@@ -201,6 +219,7 @@ class DoctorUpdateSerializer(serializers.ModelSerializer):
             'last_name',
             'email',
             'mobile_number',
+            'aadhaar_number',
             'department',
             'specialization',
             'qualification',
@@ -210,3 +229,185 @@ class DoctorUpdateSerializer(serializers.ModelSerializer):
         ]
 
 
+
+
+class PatientSerializer(serializers.ModelSerializer):
+
+    username = serializers.CharField(
+        source='user.username',
+        read_only=True
+    )
+
+    first_name = serializers.CharField(
+        source='user.first_name',
+        read_only=True
+    )
+
+    last_name = serializers.CharField(
+        source='user.last_name',
+        read_only=True
+    )
+
+    email = serializers.EmailField(
+        source='user.email',
+        read_only=True
+    )
+
+    mobile_number = serializers.CharField(
+        source='user.mobile_number',
+        read_only=True
+    )
+
+    aadhaar_number = serializers.CharField(
+        source='user.aadhaar_number',
+        read_only=True
+    )
+
+    class Meta:
+        model = PatientProfile
+
+        fields = [
+            'id',
+            'patient_id',
+
+            'username',
+            'first_name',
+            'last_name',
+            'email',
+            'mobile_number',
+            'aadhaar_number',
+
+            'date_of_birth',
+            'gender',
+            'blood_group',
+            'address',
+
+            'emergency_contact_name',
+            'emergency_contact_number',
+
+            'guardian_name',
+            'guardian_mobile',
+
+            'created_at',
+        ]
+
+        read_only_fields = [
+            'id',
+            'username',
+            'first_name',
+            'last_name',
+            'email',
+            'mobile_number',
+            'aadhaar_number',
+            'created_at',
+        ]
+
+
+class PatientCreateSerializer(serializers.ModelSerializer):
+
+    username = serializers.CharField()
+    password = serializers.CharField(
+        write_only=True,
+        min_length=8
+    )
+    first_name = serializers.CharField()
+    last_name = serializers.CharField()
+    email = serializers.EmailField(
+        required=False,
+        allow_blank=True
+    )
+    mobile_number = serializers.CharField(
+        required=False,
+        allow_blank=True
+    )
+    aadhaar_number = serializers.CharField(
+        required=False,
+        allow_blank=True
+    )
+
+    class Meta:
+        model = PatientProfile
+
+        fields = [
+            'username',
+            'password',
+            'first_name',
+            'last_name',
+            'email',
+            'mobile_number',
+            'aadhaar_number',
+
+            'patient_id',
+            'date_of_birth',
+            'gender',
+            'blood_group',
+            'address',
+
+            'emergency_contact_name',
+            'emergency_contact_number',
+
+            'guardian_name',
+            'guardian_mobile',
+        ]
+
+
+
+class PatientUpdateSerializer(serializers.ModelSerializer):
+
+    username = serializers.CharField(
+        required=False
+    )
+
+    password = serializers.CharField(
+        write_only=True,
+        min_length=8,
+        required=False
+    )
+
+    first_name = serializers.CharField(
+        required=False
+    )
+
+    last_name = serializers.CharField(
+        required=False
+    )
+
+    email = serializers.EmailField(
+        required=False,
+        allow_blank=True
+    )
+
+    mobile_number = serializers.CharField(
+        required=False,
+        allow_blank=True
+    )
+
+    aadhaar_number = serializers.CharField(
+        required=False,
+        allow_blank=True
+    )
+
+    class Meta:
+        model = PatientProfile
+
+        fields = [
+            'username',
+            'password',
+            'first_name',
+            'last_name',
+            'email',
+            'mobile_number',
+            'aadhaar_number',
+
+            'patient_id',
+            'date_of_birth',
+            'gender',
+            'blood_group',
+            'address',
+
+            'emergency_contact_name',
+            'emergency_contact_number',
+
+            'guardian_name',
+            'guardian_mobile',
+        ]
