@@ -3,6 +3,7 @@ from rest_framework import serializers
 from departments.models import Department
 from doctors.models import DoctorProfile
 from patients.models import PatientProfile
+from appointments.models import Appointment
 
 User = get_user_model()
 
@@ -411,3 +412,79 @@ class PatientUpdateSerializer(serializers.ModelSerializer):
             'guardian_name',
             'guardian_mobile',
         ]
+
+
+
+
+class AppointmentSerializer(serializers.ModelSerializer):
+
+    patient_name = serializers.CharField(
+        source='patient.user.get_full_name',
+        read_only=True
+    )
+
+    doctor_name = serializers.CharField(
+        source='doctor.user.get_full_name',
+        read_only=True
+    )
+
+    department_name = serializers.CharField(
+        source='doctor.department.name',
+        read_only=True
+    )
+
+    class Meta:
+        model = Appointment
+
+        fields = [
+            'id',
+            'patient',
+            'patient_name',
+            'doctor',
+            'doctor_name',
+            'department_name',
+            'appointment_date',
+            'appointment_time',
+            'status',
+            'reason',
+            'notes',
+            'created_at',
+        ]
+
+        read_only_fields = [
+            'id',
+            'patient_name',
+            'doctor_name',
+            'department_name',
+            'created_at',
+        ]
+
+
+class AppointmentCreateSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Appointment
+
+        fields = [
+            'patient',
+            'doctor',
+            'appointment_date',
+            'appointment_time',
+            'reason',
+        ]
+
+
+class AppointmentUpdateSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Appointment
+
+        fields = [
+            'appointment_date',
+            'appointment_time',
+            'status',
+            'reason',
+            'notes',
+        ]
+
+

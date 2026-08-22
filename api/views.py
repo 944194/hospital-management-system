@@ -32,6 +32,17 @@ from .serializers import (
 )
 
 
+from datetime import date
+
+from appointments.models import Appointment
+
+from .serializers import (
+    AppointmentSerializer,
+    AppointmentCreateSerializer,
+    AppointmentUpdateSerializer,
+)
+
+
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register(request):
@@ -508,3 +519,343 @@ def patient_detail(request, pk):
             },
             status=status.HTTP_204_NO_CONTENT
         )
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def appointment_list_create(request):
+
+    # GET - authenticated users can view appointments
+    if request.method == 'GET':
+
+        appointments = Appointment.objects.select_related(
+            'patient__user',
+            'doctor__user',
+            'doctor__department'
+        ).all()
+
+        serializer = AppointmentSerializer(
+            appointments,
+            many=True
+        )
+
+        return Response(serializer.data)
+
+    # POST
+    elif request.method == 'POST':
+
+        serializer = AppointmentCreateSerializer(
+            data=request.data
+        )
+
+        if serializer.is_valid():
+
+            patient = serializer.validated_data['patient']
+            doctor = serializer.validated_data['doctor']
+            appointment_date = serializer.validated_data[
+                'appointment_date'
+            ]
+            appointment_time = serializer.validated_data[
+                'appointment_time'
+            ]
+
+            # Patient can only create appointment for themselves
+            if request.user.role == User.Role.PATIENT:
+
+                if patient.user_id != request.user.id:
+                    return Response(
+                        {
+                            'error':
+                            'You can only create appointments for yourself.'
+                        },
+                        status=status.HTTP_403_FORBIDDEN
+                    )
+
+            # Only Admin, Receptionist and Patient can create
+            elif request.user.role not in [
+                User.Role.ADMIN,
+                User.Role.RECEPTIONIST
+            ]:
+                return Response(
+                    {
+                        'error':
+                        'You do not have permission to create appointments.'
+                    },
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            # Prevent past appointments
+            if appointment_date < date.today():
+                return Response(
+                    {
+                        'error':
+                        'Appointment date cannot be in the past.'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Prevent double booking
+            doctor_booked = Appointment.objects.filter(
+                doctor=doctor,
+                appointment_date=appointment_date,
+                appointment_time=appointment_time
+            ).exclude(
+                status=Appointment.Status.CANCELLED
+            ).exists()
+
+            if doctor_booked:
+                return Response(
+                    {
+                        'error':
+                        'Doctor is already booked for this date and time.'
+                    },
+                    status=status.HTTP_409_CONFLICT
+                )
+
+            appointment = serializer.save()
+
+            return Response(
+                AppointmentSerializer(appointment).data,
+                status=status.HTTP_201_CREATED
+            )
+
+        return Response(
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+@api_view(['GET', 'PUT', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def appointment_detail(request, pk):
+
+    try:
+        appointment = Appointment.objects.select_related(
+            'patient__user',
+            'doctor__user',
+            'doctor__department'
+        ).get(pk=pk)
+
+    except Appointment.DoesNotExist:
+        return Response(
+            {
+                'error': 'Appointment not found.'
+            },
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    # GET
+    if request.method == 'GET':
+
+        # Admin and Receptionist can view any appointment
+        if request.user.role in [
+            User.Role.ADMIN,
+            User.Role.RECEPTIONIST
+        ]:
+            serializer = AppointmentSerializer(appointment)
+            return Response(serializer.data)
+
+        # Doctor can view only their appointments
+        if request.user.role == User.Role.DOCTOR:
+
+            if appointment.doctor.user_id != request.user.id:
+                return Response(
+                    {
+                        'error':
+                        'You can only view your own appointments.'
+                    },
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            serializer = AppointmentSerializer(appointment)
+            return Response(serializer.data)
+
+        # Patient can view only their appointments
+        if request.user.role == User.Role.PATIENT:
+
+            if appointment.patient.user_id != request.user.id:
+                return Response(
+                    {
+                        'error':
+                        'You can only view your own appointments.'
+                    },
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            serializer = AppointmentSerializer(appointment)
+            return Response(serializer.data)
+
+    # PUT and DELETE permissions
+    if request.user.role not in [
+        User.Role.ADMIN,
+        User.Role.RECEPTIONIST,
+        User.Role.DOCTOR,
+        User.Role.PATIENT
+    ]:
+        return Response(
+            {
+                'error':
+                'You do not have permission to manage this appointment.'
+            },
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    # PUT
+    if request.method == 'PUT':
+
+        # Doctor can update only their appointments
+        if request.user.role == User.Role.DOCTOR:
+
+            if appointment.doctor.user_id != request.user.id:
+                return Response(
+                    {
+                        'error':
+                        'You can only update your own appointments.'
+                    },
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+        # Patient can update only their appointments
+        elif request.user.role == User.Role.PATIENT:
+
+            if appointment.patient.user_id != request.user.id:
+                return Response(
+                    {
+                        'error':
+                        'You can only update your own appointments.'
+                    },
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+        serializer = AppointmentUpdateSerializer(
+            appointment,
+            data=request.data
+        )
+
+        if serializer.is_valid():
+
+            data = serializer.validated_data
+
+            appointment_date = data.get(
+                'appointment_date',
+                appointment.appointment_date
+            )
+
+            appointment_time = data.get(
+                'appointment_time',
+                appointment.appointment_time
+            )
+
+            doctor = appointment.doctor
+
+            # Prevent double booking during update
+            doctor_booked = Appointment.objects.filter(
+                doctor=doctor,
+                appointment_date=appointment_date,
+                appointment_time=appointment_time
+            ).exclude(
+                pk=appointment.pk
+            ).exclude(
+                status=Appointment.Status.CANCELLED
+            ).exists()
+
+            if doctor_booked:
+                return Response(
+                    {
+                        'error':
+                        'Doctor is already booked for this date and time.'
+                    },
+                    status=status.HTTP_409_CONFLICT
+                )
+
+            # Prevent past appointment dates
+            if appointment_date < date.today():
+                return Response(
+                    {
+                        'error':
+                        'Appointment date cannot be in the past.'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            appointment = serializer.save()
+
+            return Response(
+                AppointmentSerializer(appointment).data
+            )
+
+        return Response(
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # DELETE
+    elif request.method == 'DELETE':
+
+        # Patient can only cancel their own appointment
+        if request.user.role == User.Role.PATIENT:
+
+            if appointment.patient.user_id != request.user.id:
+                return Response(
+                    {
+                        'error':
+                        'You can only cancel your own appointments.'
+                    },
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            # Instead of physically deleting it,
+            # mark it as cancelled.
+            appointment.status = Appointment.Status.CANCELLED
+            appointment.save(
+                update_fields=['status']
+            )
+
+            return Response(
+                {
+                    'message':
+                    'Appointment cancelled successfully.'
+                },
+                status=status.HTTP_200_OK
+            )
+
+        # Doctor can delete/cancel only their appointments
+        elif request.user.role == User.Role.DOCTOR:
+
+            if appointment.doctor.user_id != request.user.id:
+                return Response(
+                    {
+                        'error':
+                        'You can only cancel your own appointments.'
+                    },
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            appointment.status = Appointment.Status.CANCELLED
+            appointment.save(
+                update_fields=['status']
+            )
+
+            return Response(
+                {
+                    'message':
+                    'Appointment cancelled successfully.'
+                },
+                status=status.HTTP_200_OK
+            )
+
+        # Admin and Receptionist can actually delete
+        elif request.user.role in [
+            User.Role.ADMIN,
+            User.Role.RECEPTIONIST
+        ]:
+
+            appointment.delete()
+
+            return Response(
+                {
+                    'message':
+                    'Appointment deleted successfully.'
+                },
+                status=status.HTTP_204_NO_CONTENT
+            )
