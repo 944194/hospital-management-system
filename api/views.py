@@ -815,18 +815,25 @@ def appointment_list_create(request):
         if serializer.is_valid():
 
             patient = serializer.validated_data['patient']
+
             doctor = serializer.validated_data['doctor']
+
             appointment_date = serializer.validated_data[
                 'appointment_date'
             ]
+
             appointment_time = serializer.validated_data[
                 'appointment_time'
             ]
 
-            # Patient can only create appointment for themselves
+            # --------------------------------
+            # Patient ownership
+            # --------------------------------
+
             if request.user.role == User.Role.PATIENT:
 
                 if patient.user_id != request.user.id:
+
                     return Response(
                         {
                             'error':
@@ -835,11 +842,15 @@ def appointment_list_create(request):
                         status=status.HTTP_403_FORBIDDEN
                     )
 
-            # Only Admin, Receptionist and Patient can create
+            # --------------------------------
+            # Role permission
+            # --------------------------------
+
             elif request.user.role not in [
                 User.Role.ADMIN,
                 User.Role.RECEPTIONIST
             ]:
+
                 return Response(
                     {
                         'error':
@@ -848,8 +859,12 @@ def appointment_list_create(request):
                     status=status.HTTP_403_FORBIDDEN
                 )
 
+            # --------------------------------
             # Prevent past appointments
+            # --------------------------------
+
             if appointment_date < date.today():
+
                 return Response(
                     {
                         'error':
@@ -858,7 +873,34 @@ def appointment_list_create(request):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
+            # --------------------------------
+            # Check doctor availability
+            # --------------------------------
+
+            day_of_week = appointment_date.weekday()
+
+            doctor_available = DoctorAvailability.objects.filter(
+                doctor=doctor,
+                day_of_week=day_of_week,
+                is_available=True,
+                start_time__lte=appointment_time,
+                end_time__gte=appointment_time
+            ).exists()
+
+            if not doctor_available:
+
+                return Response(
+                    {
+                        'error':
+                        'Doctor is not available on this date and time.'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # --------------------------------
             # Prevent double booking
+            # --------------------------------
+
             doctor_booked = Appointment.objects.filter(
                 doctor=doctor,
                 appointment_date=appointment_date,
@@ -868,6 +910,7 @@ def appointment_list_create(request):
             ).exists()
 
             if doctor_booked:
+
                 return Response(
                     {
                         'error':
@@ -875,6 +918,10 @@ def appointment_list_create(request):
                     },
                     status=status.HTTP_409_CONFLICT
                 )
+
+            # --------------------------------
+            # Create appointment
+            # --------------------------------
 
             appointment = serializer.save()
 
@@ -887,7 +934,7 @@ def appointment_list_create(request):
             serializer.errors,
             status=status.HTTP_400_BAD_REQUEST
         )
-
+    
 
 @api_view(['GET', 'PUT', 'DELETE'])
 @permission_classes([IsAuthenticated])
