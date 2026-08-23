@@ -13,6 +13,8 @@ from .views import (
     appointment_detail,
     medical_record_list_create,
     medical_record_detail,
+    doctor_availability_list_create,
+    doctor_availability_detail,
 )
 
 from rest_framework_simplejwt.views import (
@@ -72,6 +74,18 @@ urlpatterns = [
         'doctors/<int:pk>/',
         doctor_detail,
         name='doctor_detail'
+    ),
+
+    path(
+        'doctor-availability/',
+        doctor_availability_list_create,
+        name='doctor_availability_list_create'
+    ),
+
+    path(
+        'doctor-availability/<int:pk>/',
+        doctor_availability_detail,
+        name='doctor_availability_detail'
     ),
 
     path(

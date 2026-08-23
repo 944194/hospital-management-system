@@ -1,10 +1,11 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from departments.models import Department
-from doctors.models import DoctorProfile
+from doctors.models import DoctorProfile, DoctorAvailability
 from patients.models import PatientProfile
 from appointments.models import Appointment
 from medical_records.models import MedicalRecord
+
 
 User = get_user_model()
 
@@ -228,6 +229,42 @@ class DoctorUpdateSerializer(serializers.ModelSerializer):
             'license_number',
             'experience_years',
             'consultation_fee',
+        ]
+
+
+
+class DoctorAvailabilitySerializer(serializers.ModelSerializer):
+
+    doctor_name = serializers.CharField(
+        source='doctor.user.get_full_name',
+        read_only=True
+    )
+
+    day_name = serializers.CharField(
+        source='get_day_of_week_display',
+        read_only=True
+    )
+
+    class Meta:
+        model = DoctorAvailability
+
+        fields = [
+            'id',
+            'doctor',
+            'doctor_name',
+            'day_of_week',
+            'day_name',
+            'start_time',
+            'end_time',
+            'is_available',
+            'created_at',
+        ]
+
+        read_only_fields = [
+            'id',
+            'doctor_name',
+            'day_name',
+            'created_at',
         ]
 
 
@@ -568,3 +605,7 @@ class MedicalRecordUpdateSerializer(serializers.ModelSerializer):
             'treatment',
             'notes',
         ]
+
+
+
+

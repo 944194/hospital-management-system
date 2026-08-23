@@ -43,3 +43,45 @@ class DoctorProfile(models.Model):
 
     def __str__(self):
         return f"{self.user.get_full_name()} - {self.specialization}"
+
+
+
+class DoctorAvailability(models.Model):
+
+    class DayOfWeek(models.IntegerChoices):
+        MONDAY = 0, 'Monday'
+        TUESDAY = 1, 'Tuesday'
+        WEDNESDAY = 2, 'Wednesday'
+        THURSDAY = 3, 'Thursday'
+        FRIDAY = 4, 'Friday'
+        SATURDAY = 5, 'Saturday'
+        SUNDAY = 6, 'Sunday'
+
+    doctor = models.ForeignKey(
+        DoctorProfile,
+        on_delete=models.CASCADE,
+        related_name='availabilities'
+    )
+
+    day_of_week = models.PositiveSmallIntegerField(
+        choices=DayOfWeek.choices
+    )
+
+    start_time = models.TimeField()
+
+    end_time = models.TimeField()
+
+    is_available = models.BooleanField(
+        default=True
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True
+    )
+
+    def __str__(self):
+        return (
+            f"{self.doctor.user.get_full_name()} - "
+            f"{self.get_day_of_week_display()} "
+            f"{self.start_time} - {self.end_time}"
+        )

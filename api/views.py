@@ -15,12 +15,13 @@ from .serializers import DepartmentSerializer
 from django.db import transaction
 from django.contrib.auth import get_user_model
 
-from doctors.models import DoctorProfile
+from doctors.models import DoctorProfile, DoctorAvailability
 User = get_user_model()
 from .serializers import (
     DoctorSerializer,
     DoctorCreateSerializer,
     DoctorUpdateSerializer,
+    DoctorAvailabilitySerializer,
 )
 
 
@@ -333,6 +334,260 @@ def doctor_detail(request, pk):
         return Response(
             {
                 'message': 'Doctor deleted successfully'
+            },
+            status=status.HTTP_204_NO_CONTENT
+        )
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def doctor_availability_list_create(request):
+
+    # GET
+    if request.method == 'GET':
+
+        availabilities = DoctorAvailability.objects.select_related(
+            'doctor__user'
+        ).all()
+
+        # Doctor → only their own availability
+        if request.user.role == User.Role.DOCTOR:
+            availabilities = availabilities.filter(
+                doctor__user=request.user
+            )
+
+        # Admin → all availability
+        # Other authenticated users → all availability for now
+
+        serializer = DoctorAvailabilitySerializer(
+            availabilities,
+            many=True
+        )
+
+        return Response(serializer.data)
+
+    # POST
+    elif request.method == 'POST':
+
+        # Only Admin and Doctor can create availability
+        if request.user.role not in [
+            User.Role.ADMIN,
+            User.Role.DOCTOR
+        ]:
+            return Response(
+                {
+                    'error':
+                    'You do not have permission to create doctor availability.'
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        data = request.data.copy()
+
+        # Doctor cannot create availability for another doctor
+        if request.user.role == User.Role.DOCTOR:
+
+            try:
+                doctor = DoctorProfile.objects.get(
+                    user=request.user
+                )
+
+            except DoctorProfile.DoesNotExist:
+                return Response(
+                    {
+                        'error': 'Doctor profile not found.'
+                    },
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            data['doctor'] = doctor.id
+
+        serializer = DoctorAvailabilitySerializer(
+            data=data
+        )
+
+        if serializer.is_valid():
+
+            doctor = serializer.validated_data['doctor']
+            day_of_week = serializer.validated_data['day_of_week']
+            start_time = serializer.validated_data['start_time']
+            end_time = serializer.validated_data['end_time']
+
+            # Validate time range
+            if start_time >= end_time:
+                return Response(
+                    {
+                        'error':
+                        'Start time must be before end time.'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Prevent overlapping availability
+            overlapping = DoctorAvailability.objects.filter(
+                doctor=doctor,
+                day_of_week=day_of_week,
+                is_available=True
+            ).filter(
+                start_time__lt=end_time,
+                end_time__gt=start_time
+            ).exists()
+
+            if overlapping:
+                return Response(
+                    {
+                        'error':
+                        'Doctor already has availability during this time.'
+                    },
+                    status=status.HTTP_409_CONFLICT
+                )
+
+            availability = serializer.save()
+
+            return Response(
+                DoctorAvailabilitySerializer(
+                    availability
+                ).data,
+                status=status.HTTP_201_CREATED
+            )
+
+        return Response(
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+@api_view(['GET', 'PUT', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def doctor_availability_detail(request, pk):
+
+    try:
+        availability = DoctorAvailability.objects.select_related(
+            'doctor__user'
+        ).get(pk=pk)
+
+    except DoctorAvailability.DoesNotExist:
+        return Response(
+            {
+                'error': 'Doctor availability not found.'
+            },
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    # GET
+    if request.method == 'GET':
+
+        serializer = DoctorAvailabilitySerializer(
+            availability
+        )
+
+        return Response(serializer.data)
+
+    # PUT / DELETE permission
+    if request.user.role not in [
+        User.Role.ADMIN,
+        User.Role.DOCTOR
+    ]:
+        return Response(
+            {
+                'error':
+                'You do not have permission to modify doctor availability.'
+            },
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    # Doctor can modify only their own availability
+    if request.user.role == User.Role.DOCTOR:
+
+        if availability.doctor.user_id != request.user.id:
+            return Response(
+                {
+                    'error':
+                    'You can only modify your own availability.'
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+    # PUT
+    if request.method == 'PUT':
+
+        serializer = DoctorAvailabilitySerializer(
+            availability,
+            data=request.data
+        )
+
+        if serializer.is_valid():
+
+            doctor = serializer.validated_data.get(
+                'doctor',
+                availability.doctor
+            )
+
+            day_of_week = serializer.validated_data.get(
+                'day_of_week',
+                availability.day_of_week
+            )
+
+            start_time = serializer.validated_data.get(
+                'start_time',
+                availability.start_time
+            )
+
+            end_time = serializer.validated_data.get(
+                'end_time',
+                availability.end_time
+            )
+
+            if start_time >= end_time:
+                return Response(
+                    {
+                        'error':
+                        'Start time must be before end time.'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            overlapping = DoctorAvailability.objects.filter(
+                doctor=doctor,
+                day_of_week=day_of_week,
+                is_available=True,
+                start_time__lt=end_time,
+                end_time__gt=start_time
+            ).exclude(
+                pk=availability.pk
+            ).exists()
+
+            if overlapping:
+                return Response(
+                    {
+                        'error':
+                        'Doctor already has availability during this time.'
+                    },
+                    status=status.HTTP_409_CONFLICT
+                )
+
+            availability = serializer.save()
+
+            return Response(
+                DoctorAvailabilitySerializer(
+                    availability
+                ).data
+            )
+
+        return Response(
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # DELETE
+    elif request.method == 'DELETE':
+
+        availability.delete()
+
+        return Response(
+            {
+                'message':
+                'Doctor availability deleted successfully.'
             },
             status=status.HTTP_204_NO_CONTENT
         )
