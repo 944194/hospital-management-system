@@ -43,6 +43,15 @@ from .serializers import (
 )
 
 
+from medical_records.models import MedicalRecord
+
+from .serializers import (
+    MedicalRecordSerializer,
+    MedicalRecordCreateSerializer,
+    MedicalRecordUpdateSerializer,
+)
+
+
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register(request):
@@ -859,3 +868,242 @@ def appointment_detail(request, pk):
                 },
                 status=status.HTTP_204_NO_CONTENT
             )
+
+
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def medical_record_list_create(request):
+
+    # GET
+    if request.method == 'GET':
+
+        records = MedicalRecord.objects.select_related(
+            'patient__user',
+            'doctor__user',
+            'appointment'
+        ).all()
+
+        # Doctor → only their records
+        if request.user.role == User.Role.DOCTOR:
+            records = records.filter(
+                doctor__user=request.user
+            )
+
+        # Patient → only their own records
+        elif request.user.role == User.Role.PATIENT:
+            records = records.filter(
+                patient__user=request.user
+            )
+
+        # Admin → all records
+        # Receptionist → all records for now
+
+        serializer = MedicalRecordSerializer(
+            records,
+            many=True
+        )
+
+        return Response(serializer.data)
+
+    # POST
+    elif request.method == 'POST':
+
+        # Only Doctor and Admin can create medical records
+        if request.user.role not in [
+            User.Role.DOCTOR,
+            User.Role.ADMIN
+        ]:
+            return Response(
+                {
+                    'error':
+                    'You do not have permission to create medical records.'
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        serializer = MedicalRecordCreateSerializer(
+            data=request.data
+        )
+
+        if serializer.is_valid():
+
+            appointment = serializer.validated_data['appointment']
+
+            # Doctor can only create a record for their own appointment
+            if request.user.role == User.Role.DOCTOR:
+
+                if appointment.doctor.user_id != request.user.id:
+                    return Response(
+                        {
+                            'error':
+                            'You can only create medical records '
+                            'for your own appointments.'
+                        },
+                        status=status.HTTP_403_FORBIDDEN
+                    )
+
+            # Appointment should be completed/confirmed
+            if appointment.status not in [
+                Appointment.Status.CONFIRMED,
+                Appointment.Status.COMPLETED
+            ]:
+                return Response(
+                    {
+                        'error':
+                        'Medical record can only be created for '
+                        'a confirmed or completed appointment.'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # One appointment → one medical record
+            if MedicalRecord.objects.filter(
+                appointment=appointment
+            ).exists():
+                return Response(
+                    {
+                        'error':
+                        'A medical record already exists for this appointment.'
+                    },
+                    status=status.HTTP_409_CONFLICT
+                )
+
+            # Automatically get patient and doctor
+            patient = appointment.patient
+            doctor = appointment.doctor
+
+            record = serializer.save(
+                patient=patient,
+                doctor=doctor
+            )
+
+            return Response(
+                MedicalRecordSerializer(record).data,
+                status=status.HTTP_201_CREATED
+            )
+
+        return Response(
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+@api_view(['GET', 'PUT'])
+@permission_classes([IsAuthenticated])
+def medical_record_detail(request, pk):
+
+    try:
+        record = MedicalRecord.objects.select_related(
+            'patient__user',
+            'doctor__user',
+            'appointment'
+        ).get(pk=pk)
+
+    except MedicalRecord.DoesNotExist:
+        return Response(
+            {
+                'error': 'Medical record not found.'
+            },
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    # -------------------------
+    # GET
+    # -------------------------
+    if request.method == 'GET':
+
+        # Admin can view any record
+        if request.user.role == User.Role.ADMIN:
+            return Response(
+                MedicalRecordSerializer(record).data
+            )
+
+        # Doctor can view records of their patients
+        if request.user.role == User.Role.DOCTOR:
+
+            if record.doctor.user_id != request.user.id:
+                return Response(
+                    {
+                        'error':
+                        'You can only view records of your patients.'
+                    },
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            return Response(
+                MedicalRecordSerializer(record).data
+            )
+
+        # Patient can view only their own record
+        if request.user.role == User.Role.PATIENT:
+
+            if record.patient.user_id != request.user.id:
+                return Response(
+                    {
+                        'error':
+                        'You can only view your own medical records.'
+                    },
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            return Response(
+                MedicalRecordSerializer(record).data
+            )
+
+        # Receptionist
+        return Response(
+            {
+                'error':
+                'You do not have permission to view medical records.'
+            },
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    # -------------------------
+    # PUT
+    # -------------------------
+
+    # Only Admin and Doctor can update
+    if request.user.role not in [
+        User.Role.ADMIN,
+        User.Role.DOCTOR
+    ]:
+        return Response(
+            {
+                'error':
+                'You do not have permission to update medical records.'
+            },
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    # Doctor can update only their own records
+    if request.user.role == User.Role.DOCTOR:
+
+        if record.doctor.user_id != request.user.id:
+            return Response(
+                {
+                    'error':
+                    'You can only update records of your patients.'
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+    serializer = MedicalRecordUpdateSerializer(
+        record,
+        data=request.data
+    )
+
+    if serializer.is_valid():
+
+        record = serializer.save()
+
+        return Response(
+            MedicalRecordSerializer(record).data
+        )
+
+    return Response(
+        serializer.errors,
+        status=status.HTTP_400_BAD_REQUEST
+    )

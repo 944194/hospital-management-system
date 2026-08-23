@@ -4,6 +4,7 @@ from departments.models import Department
 from doctors.models import DoctorProfile
 from patients.models import PatientProfile
 from appointments.models import Appointment
+from medical_records.models import MedicalRecord
 
 User = get_user_model()
 
@@ -488,3 +489,82 @@ class AppointmentUpdateSerializer(serializers.ModelSerializer):
         ]
 
 
+
+class MedicalRecordSerializer(serializers.ModelSerializer):
+
+    patient_name = serializers.CharField(
+        source='patient.user.get_full_name',
+        read_only=True
+    )
+
+    doctor_name = serializers.CharField(
+        source='doctor.user.get_full_name',
+        read_only=True
+    )
+
+    appointment_date = serializers.DateField(
+        source='appointment.appointment_date',
+        read_only=True
+    )
+
+    appointment_time = serializers.TimeField(
+        source='appointment.appointment_time',
+        read_only=True
+    )
+
+    class Meta:
+        model = MedicalRecord
+
+        fields = [
+            'id',
+            'patient',
+            'patient_name',
+            'doctor',
+            'doctor_name',
+            'appointment',
+            'appointment_date',
+            'appointment_time',
+            'symptoms',
+            'diagnosis',
+            'treatment',
+            'notes',
+            'created_at',
+            'updated_at',
+        ]
+
+        read_only_fields = [
+            'id',
+            'patient_name',
+            'doctor_name',
+            'appointment_date',
+            'appointment_time',
+            'created_at',
+            'updated_at',
+        ]
+
+
+class MedicalRecordCreateSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = MedicalRecord
+
+        fields = [
+            'appointment',
+            'symptoms',
+            'diagnosis',
+            'treatment',
+            'notes',
+        ]
+
+
+class MedicalRecordUpdateSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = MedicalRecord
+
+        fields = [
+            'symptoms',
+            'diagnosis',
+            'treatment',
+            'notes',
+        ]
