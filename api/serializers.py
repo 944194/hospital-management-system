@@ -6,6 +6,7 @@ from patients.models import PatientProfile
 from appointments.models import Appointment
 from medical_records.models import MedicalRecord
 from prescriptions.models import Prescription
+from billing.models import Bill
 
 
 User = get_user_model()
@@ -653,3 +654,58 @@ class PrescriptionSerializer(serializers.ModelSerializer):
             'updated_at',
         ]
 
+
+class BillSerializer(serializers.ModelSerializer):
+
+    patient_name = serializers.CharField(
+        source='appointment.patient.user.get_full_name',
+        read_only=True
+    )
+
+    doctor_name = serializers.CharField(
+        source='appointment.doctor.user.get_full_name',
+        read_only=True
+    )
+
+    appointment_date = serializers.DateField(
+        source='appointment.appointment_date',
+        read_only=True
+    )
+
+    appointment_time = serializers.TimeField(
+        source='appointment.appointment_time',
+        read_only=True
+    )
+
+    class Meta:
+        model = Bill
+
+        fields = [
+            'id',
+            'appointment',
+            'patient_name',
+            'doctor_name',
+            'appointment_date',
+            'appointment_time',
+            'consultation_fee',
+            'additional_charges',
+            'total_amount',
+            'payment_status',
+            'payment_method',
+            'paid_amount',
+            'notes',
+            'created_at',
+            'updated_at',
+        ]
+
+        read_only_fields = [
+            'id',
+            'patient_name',
+            'doctor_name',
+            'appointment_date',
+            'appointment_time',
+            'consultation_fee',
+            'total_amount',
+            'created_at',
+            'updated_at',
+        ]

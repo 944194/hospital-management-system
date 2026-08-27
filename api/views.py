@@ -20,6 +20,8 @@ from datetime import date
 from appointments.models import Appointment
 from medical_records.models import MedicalRecord
 from prescriptions.models import Prescription
+from billing.models import Bill
+
 
 
 from .serializers import (
@@ -40,7 +42,7 @@ from .serializers import (
     MedicalRecordCreateSerializer,
     MedicalRecordUpdateSerializer,
     PrescriptionSerializer,
-    
+    BillSerializer,  
 )
 
 
@@ -1623,6 +1625,455 @@ def prescription_detail(request, pk):
                 PrescriptionSerializer(
                     prescription
                 ).data
+            )
+
+        return Response(
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def bill_list_create(request):
+
+    # --------------------------------
+    # GET
+    # --------------------------------
+
+    if request.method == 'GET':
+
+        bills = Bill.objects.select_related(
+            'appointment__patient__user',
+            'appointment__doctor__user',
+            'appointment__doctor'
+        ).all()
+
+        # Patient → only their own bills
+        if request.user.role == User.Role.PATIENT:
+
+            bills = bills.filter(
+                appointment__patient__user=request.user
+            )
+
+        # Doctor → only bills for their appointments
+        elif request.user.role == User.Role.DOCTOR:
+
+            bills = bills.filter(
+                appointment__doctor__user=request.user
+            )
+
+        # Admin / Receptionist → all bills
+
+        serializer = BillSerializer(
+            bills,
+            many=True
+        )
+
+        return Response(serializer.data)
+
+    # --------------------------------
+    # POST
+    # --------------------------------
+
+    elif request.method == 'POST':
+
+        # Only Admin and Receptionist can create bills
+        if request.user.role not in [
+            User.Role.ADMIN,
+            User.Role.RECEPTIONIST
+        ]:
+            return Response(
+                {
+                    'error':
+                    'You do not have permission to create bills.'
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        appointment_id = request.data.get('appointment')
+
+        if not appointment_id:
+            return Response(
+                {
+                    'error':
+                    'Appointment is required.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            appointment = Appointment.objects.select_related(
+                'doctor'
+            ).get(
+                id=appointment_id
+            )
+
+        except Appointment.DoesNotExist:
+            return Response(
+                {
+                    'error':
+                    'Appointment not found.'
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # --------------------------------
+        # Appointment status validation
+        # --------------------------------
+
+        if appointment.status not in [
+            Appointment.Status.CONFIRMED,
+            Appointment.Status.COMPLETED
+        ]:
+            return Response(
+                {
+                    'error':
+                    'Bill can only be created for confirmed or completed appointments.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # --------------------------------
+        # Prevent duplicate bill
+        # --------------------------------
+
+        if Bill.objects.filter(
+            appointment=appointment
+        ).exists():
+
+            return Response(
+                {
+                    'error':
+                    'A bill already exists for this appointment.'
+                },
+                status=status.HTTP_409_CONFLICT
+            )
+
+        # --------------------------------
+        # Consultation fee
+        # --------------------------------
+
+        consultation_fee = appointment.doctor.consultation_fee
+
+        if consultation_fee is None:
+            return Response(
+                {
+                    'error':
+                    'Doctor consultation fee is not configured.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # --------------------------------
+        # Additional charges
+        # --------------------------------
+
+        additional_charges = request.data.get(
+            'additional_charges',
+            0
+        )
+
+        try:
+            from decimal import Decimal
+
+            additional_charges = Decimal(
+                str(additional_charges)
+            )
+
+        except Exception:
+            return Response(
+                {
+                    'error':
+                    'Additional charges must be a valid number.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if additional_charges < 0:
+            return Response(
+                {
+                    'error':
+                    'Additional charges cannot be negative.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # --------------------------------
+        # Calculate total
+        # --------------------------------
+
+        total_amount = (
+            consultation_fee +
+            additional_charges
+        )
+
+        data = {
+            'appointment': appointment.id,
+            'consultation_fee': consultation_fee,
+            'additional_charges': additional_charges,
+            'total_amount': total_amount,
+            'payment_status': request.data.get(
+                'payment_status',
+                Bill.PaymentStatus.PENDING
+            ),
+            'payment_method': request.data.get(
+                'payment_method'
+            ),
+            'paid_amount': request.data.get(
+                'paid_amount',
+                0
+            ),
+            'notes': request.data.get(
+                'notes',
+                ''
+            )
+        }
+
+        serializer = BillSerializer(
+            data=data
+        )
+
+        if serializer.is_valid():
+
+            bill = serializer.save(
+                consultation_fee=consultation_fee,
+                total_amount=total_amount
+            )
+
+            return Response(
+                BillSerializer(bill).data,
+                status=status.HTTP_201_CREATED
+            )
+
+        return Response(
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+@api_view(['GET', 'PUT', 'PATCH'])
+@permission_classes([IsAuthenticated])
+def bill_detail(request, pk):
+
+    try:
+        bill = Bill.objects.select_related(
+            'appointment__patient__user',
+            'appointment__doctor__user',
+            'appointment__doctor'
+        ).get(
+            id=pk
+        )
+
+    except Bill.DoesNotExist:
+        return Response(
+            {
+                'error': 'Bill not found.'
+            },
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    # --------------------------------
+    # GET
+    # --------------------------------
+
+    if request.method == 'GET':
+
+        # Patient → only their own bill
+        if request.user.role == User.Role.PATIENT:
+
+            if bill.appointment.patient.user_id != request.user.id:
+                return Response(
+                    {
+                        'error':
+                        'You can only view your own bills.'
+                    },
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+        # Doctor → only bills for their appointments
+        elif request.user.role == User.Role.DOCTOR:
+
+            if bill.appointment.doctor.user_id != request.user.id:
+                return Response(
+                    {
+                        'error':
+                        'You can only view bills for your appointments.'
+                    },
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+        serializer = BillSerializer(bill)
+
+        return Response(
+            serializer.data,
+            status=status.HTTP_200_OK
+        )
+
+    # --------------------------------
+    # PUT / PATCH
+    # --------------------------------
+
+    if request.method in ['PUT', 'PATCH']:
+
+        # Only Admin and Receptionist can update payment details
+        if request.user.role not in [
+            User.Role.ADMIN,
+            User.Role.RECEPTIONIST
+        ]:
+            return Response(
+                {
+                    'error':
+                    'You do not have permission to update bills.'
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # --------------------------------
+        # Protected fields
+        # --------------------------------
+
+        protected_fields = [
+            'appointment',
+            'consultation_fee',
+            'total_amount'
+        ]
+
+        for field in protected_fields:
+
+            if field in request.data:
+
+                return Response(
+                    {
+                        'error':
+                        f'{field} cannot be changed.'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        # --------------------------------
+        # Validate paid amount
+        # --------------------------------
+
+        if 'paid_amount' in request.data:
+
+            try:
+                from decimal import Decimal
+
+                paid_amount = Decimal(
+                    str(request.data['paid_amount'])
+                )
+
+            except Exception:
+
+                return Response(
+                    {
+                        'error':
+                        'Paid amount must be a valid number.'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            if paid_amount < 0:
+
+                return Response(
+                    {
+                        'error':
+                        'Paid amount cannot be negative.'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            if paid_amount > bill.total_amount:
+
+                return Response(
+                    {
+                        'error':
+                        'Paid amount cannot exceed the total amount.'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        # --------------------------------
+        # Validate payment status
+        # --------------------------------
+
+        payment_status = request.data.get(
+            'payment_status',
+            bill.payment_status
+        )
+
+        if payment_status not in [
+            Bill.PaymentStatus.PENDING,
+            Bill.PaymentStatus.PAID,
+            Bill.PaymentStatus.CANCELLED
+        ]:
+
+            return Response(
+                {
+                    'error':
+                    'Invalid payment status.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # --------------------------------
+        # PAID validation
+        # --------------------------------
+
+        if payment_status == Bill.PaymentStatus.PAID:
+
+            paid_amount = request.data.get(
+                'paid_amount',
+                bill.paid_amount
+            )
+
+            from decimal import Decimal
+
+            paid_amount = Decimal(
+                str(paid_amount)
+            )
+
+            if paid_amount != bill.total_amount:
+
+                return Response(
+                    {
+                        'error':
+                        'Paid amount must equal the total amount when payment status is PAID.'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            if not request.data.get(
+                'payment_method',
+                bill.payment_method
+            ):
+
+                return Response(
+                    {
+                        'error':
+                        'Payment method is required when payment status is PAID.'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        # --------------------------------
+        # Update
+        # --------------------------------
+
+        serializer = BillSerializer(
+            bill,
+            data=request.data,
+            partial=(request.method == 'PATCH')
+        )
+
+        if serializer.is_valid():
+
+            bill = serializer.save()
+
+            return Response(
+                BillSerializer(bill).data,
+                status=status.HTTP_200_OK
             )
 
         return Response(
