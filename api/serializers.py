@@ -5,6 +5,7 @@ from doctors.models import DoctorProfile, DoctorAvailability
 from patients.models import PatientProfile
 from appointments.models import Appointment
 from medical_records.models import MedicalRecord
+from prescriptions.models import Prescription
 
 
 User = get_user_model()
@@ -608,4 +609,47 @@ class MedicalRecordUpdateSerializer(serializers.ModelSerializer):
 
 
 
+class PrescriptionSerializer(serializers.ModelSerializer):
+
+    patient_name = serializers.CharField(
+        source='medical_record.patient.user.get_full_name',
+        read_only=True
+    )
+
+    doctor_name = serializers.CharField(
+        source='medical_record.doctor.user.get_full_name',
+        read_only=True
+    )
+
+    medical_record_id = serializers.IntegerField(
+        source='medical_record.id',
+        read_only=True
+    )
+
+    class Meta:
+        model = Prescription
+
+        fields = [
+            'id',
+            'medical_record',
+            'medical_record_id',
+            'patient_name',
+            'doctor_name',
+            'medicine_name',
+            'dosage',
+            'frequency',
+            'duration',
+            'instructions',
+            'created_at',
+            'updated_at',
+        ]
+
+        read_only_fields = [
+            'id',
+            'medical_record_id',
+            'patient_name',
+            'doctor_name',
+            'created_at',
+            'updated_at',
+        ]
 

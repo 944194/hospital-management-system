@@ -8,48 +8,39 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 
-from .serializers import RegisterSerializer, UserProfileSerializer
-from departments.models import Department
-from .serializers import DepartmentSerializer
 
 from django.db import transaction
 from django.contrib.auth import get_user_model
-
-from doctors.models import DoctorProfile, DoctorAvailability
 User = get_user_model()
+
+from departments.models import Department
+from doctors.models import DoctorProfile, DoctorAvailability
+from patients.models import PatientProfile
+from datetime import date
+from appointments.models import Appointment
+from medical_records.models import MedicalRecord
+from prescriptions.models import Prescription
+
+
 from .serializers import (
+    RegisterSerializer, 
+    UserProfileSerializer,
+    DepartmentSerializer,
     DoctorSerializer,
     DoctorCreateSerializer,
     DoctorUpdateSerializer,
     DoctorAvailabilitySerializer,
-)
-
-
-from patients.models import PatientProfile
-from .serializers import (
     PatientSerializer,
     PatientCreateSerializer,
     PatientUpdateSerializer,
-)
-
-
-from datetime import date
-
-from appointments.models import Appointment
-
-from .serializers import (
     AppointmentSerializer,
     AppointmentCreateSerializer,
     AppointmentUpdateSerializer,
-)
-
-
-from medical_records.models import MedicalRecord
-
-from .serializers import (
     MedicalRecordSerializer,
     MedicalRecordCreateSerializer,
     MedicalRecordUpdateSerializer,
+    PrescriptionSerializer,
+    
 )
 
 
@@ -1409,3 +1400,232 @@ def medical_record_detail(request, pk):
         serializer.errors,
         status=status.HTTP_400_BAD_REQUEST
     )
+
+
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def prescription_list_create(request):
+
+    # --------------------------------
+    # GET
+    # --------------------------------
+
+    if request.method == 'GET':
+
+        prescriptions = Prescription.objects.select_related(
+            'medical_record__patient__user',
+            'medical_record__doctor__user',
+            'medical_record__appointment'
+        ).all()
+
+        # Doctor → only prescriptions related to their records
+        if request.user.role == User.Role.DOCTOR:
+
+            prescriptions = prescriptions.filter(
+                medical_record__doctor__user=request.user
+            )
+
+        # Patient → only their own prescriptions
+        elif request.user.role == User.Role.PATIENT:
+
+            prescriptions = prescriptions.filter(
+                medical_record__patient__user=request.user
+            )
+
+        # Admin → all prescriptions
+        # Receptionist → all prescriptions for now
+
+        serializer = PrescriptionSerializer(
+            prescriptions,
+            many=True
+        )
+
+        return Response(serializer.data)
+
+    # --------------------------------
+    # POST
+    # --------------------------------
+
+    elif request.method == 'POST':
+
+        # Only Doctor and Admin can create prescriptions
+        if request.user.role not in [
+            User.Role.DOCTOR,
+            User.Role.ADMIN
+        ]:
+            return Response(
+                {
+                    'error':
+                    'You do not have permission to create prescriptions.'
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        serializer = PrescriptionSerializer(
+            data=request.data
+        )
+
+        if serializer.is_valid():
+
+            medical_record = serializer.validated_data[
+                'medical_record'
+            ]
+
+            # --------------------------------
+            # Doctor ownership check
+            # --------------------------------
+
+            if request.user.role == User.Role.DOCTOR:
+
+                if medical_record.doctor.user_id != request.user.id:
+
+                    return Response(
+                        {
+                            'error':
+                            'You can only create prescriptions '
+                            'for your own medical records.'
+                        },
+                        status=status.HTTP_403_FORBIDDEN
+                    )
+
+            # --------------------------------
+            # Create prescription
+            # --------------------------------
+
+            prescription = serializer.save()
+
+            return Response(
+                PrescriptionSerializer(
+                    prescription
+                ).data,
+                status=status.HTTP_201_CREATED
+            )
+
+        return Response(
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+@api_view(['GET', 'PUT'])
+@permission_classes([IsAuthenticated])
+def prescription_detail(request, pk):
+
+    try:
+        prescription = Prescription.objects.select_related(
+            'medical_record__patient__user',
+            'medical_record__doctor__user',
+            'medical_record__appointment'
+        ).get(pk=pk)
+
+    except Prescription.DoesNotExist:
+        return Response(
+            {
+                'error': 'Prescription not found.'
+            },
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    # --------------------------------
+    # GET
+    # --------------------------------
+
+    if request.method == 'GET':
+
+        # Patient → only their own prescription
+        if request.user.role == User.Role.PATIENT:
+
+            if prescription.medical_record.patient.user_id != request.user.id:
+                return Response(
+                    {
+                        'error':
+                        'You can only view your own prescriptions.'
+                    },
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+        # Doctor → only prescriptions from their medical records
+        elif request.user.role == User.Role.DOCTOR:
+
+            if prescription.medical_record.doctor.user_id != request.user.id:
+                return Response(
+                    {
+                        'error':
+                        'You can only view prescriptions for your own patients.'
+                    },
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+        # Admin → can view everything
+        elif request.user.role == User.Role.ADMIN:
+            pass
+
+        # Receptionist → no access
+        else:
+            return Response(
+                {
+                    'error':
+                    'You do not have permission to view prescriptions.'
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        serializer = PrescriptionSerializer(
+            prescription
+        )
+
+        return Response(serializer.data)
+
+    # --------------------------------
+    # PUT
+    # --------------------------------
+
+    elif request.method == 'PUT':
+
+        # Only Admin and Doctor can update
+        if request.user.role not in [
+            User.Role.ADMIN,
+            User.Role.DOCTOR
+        ]:
+            return Response(
+                {
+                    'error':
+                    'You do not have permission to update prescriptions.'
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Doctor → only their own medical records
+        if request.user.role == User.Role.DOCTOR:
+
+            if prescription.medical_record.doctor.user_id != request.user.id:
+                return Response(
+                    {
+                        'error':
+                        'You can only update prescriptions '
+                        'for your own medical records.'
+                    },
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+        serializer = PrescriptionSerializer(
+            prescription,
+            data=request.data
+        )
+
+        if serializer.is_valid():
+
+            prescription = serializer.save()
+
+            return Response(
+                PrescriptionSerializer(
+                    prescription
+                ).data
+            )
+
+        return Response(
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST
+        )
