@@ -13,6 +13,7 @@ from django.db import transaction
 from django.contrib.auth import get_user_model
 User = get_user_model()
 
+
 from departments.models import Department
 from doctors.models import DoctorProfile, DoctorAvailability
 from patients.models import PatientProfile
@@ -21,6 +22,7 @@ from appointments.models import Appointment
 from medical_records.models import MedicalRecord
 from prescriptions.models import Prescription
 from billing.models import Bill
+from lab_tests.models import LabTest, LabResult
 
 
 
@@ -42,7 +44,9 @@ from .serializers import (
     MedicalRecordCreateSerializer,
     MedicalRecordUpdateSerializer,
     PrescriptionSerializer,
-    BillSerializer,  
+    BillSerializer,
+    LabTestSerializer,
+    LabResultSerializer,
 )
 
 
@@ -2073,6 +2077,710 @@ def bill_detail(request, pk):
 
             return Response(
                 BillSerializer(bill).data,
+                status=status.HTTP_200_OK
+            )
+
+        return Response(
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def lab_test_list_create(request):
+
+    # --------------------------------
+    # GET
+    # --------------------------------
+
+    if request.method == 'GET':
+
+        lab_tests = LabTest.objects.select_related(
+            'patient__user',
+            'doctor__user',
+            'medical_record'
+        ).all()
+
+        # Patient → only their own lab tests
+        if request.user.role == User.Role.PATIENT:
+
+            lab_tests = lab_tests.filter(
+                patient__user=request.user
+            )
+
+        # Doctor → only tests for their patients
+        elif request.user.role == User.Role.DOCTOR:
+
+            lab_tests = lab_tests.filter(
+                doctor__user=request.user
+            )
+
+        # Admin / Receptionist → all lab tests
+
+        serializer = LabTestSerializer(
+            lab_tests,
+            many=True
+        )
+
+        return Response(serializer.data)
+
+    # --------------------------------
+    # POST
+    # --------------------------------
+
+    elif request.method == 'POST':
+
+        # Only Admin and Doctor can create lab tests
+        if request.user.role not in [
+            User.Role.ADMIN,
+            User.Role.DOCTOR
+        ]:
+            return Response(
+                {
+                    'error':
+                    'You do not have permission to create lab tests.'
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        medical_record_id = request.data.get(
+            'medical_record'
+        )
+
+        if not medical_record_id:
+            return Response(
+                {
+                    'error':
+                    'Medical record is required.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # --------------------------------
+        # Get medical record
+        # --------------------------------
+
+        try:
+            medical_record = MedicalRecord.objects.select_related(
+                'patient',
+                'doctor'
+            ).get(
+                id=medical_record_id
+            )
+
+        except MedicalRecord.DoesNotExist:
+            return Response(
+                {
+                    'error':
+                    'Medical record not found.'
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # --------------------------------
+        # Doctor ownership validation
+        # --------------------------------
+
+        if request.user.role == User.Role.DOCTOR:
+
+            if medical_record.doctor.user_id != request.user.id:
+                return Response(
+                    {
+                        'error':
+                        'You can only create lab tests for your own patients.'
+                    },
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+        # --------------------------------
+        # Get patient and doctor
+        # from medical record
+        # --------------------------------
+
+        patient = medical_record.patient
+        doctor = medical_record.doctor
+
+        # --------------------------------
+        # Required fields
+        # --------------------------------
+
+        test_name = request.data.get(
+            'test_name'
+        )
+
+        test_type = request.data.get(
+            'test_type'
+        )
+
+        if not test_name:
+            return Response(
+                {
+                    'error':
+                    'Test name is required.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not test_type:
+            return Response(
+                {
+                    'error':
+                    'Test type is required.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # --------------------------------
+        # Create lab test
+        # --------------------------------
+
+        data = {
+            'patient': patient.id,
+            'doctor': doctor.id,
+            'medical_record': medical_record.id,
+            'test_name': test_name,
+            'test_type': test_type,
+            'status': LabTest.Status.REQUESTED,
+            'test_date': request.data.get(
+                'test_date'
+            ),
+            'notes': request.data.get(
+                'notes',
+                ''
+            )
+        }
+
+        serializer = LabTestSerializer(
+            data=data
+        )
+
+        if serializer.is_valid():
+
+            lab_test = serializer.save()
+
+            return Response(
+                LabTestSerializer(lab_test).data,
+                status=status.HTTP_201_CREATED
+            )
+
+        return Response(
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+
+@api_view(['GET', 'PUT', 'PATCH'])
+@permission_classes([IsAuthenticated])
+def lab_test_detail(request, pk):
+
+    try:
+        lab_test = LabTest.objects.select_related(
+            'patient__user',
+            'doctor__user',
+            'medical_record'
+        ).get(
+            id=pk
+        )
+
+    except LabTest.DoesNotExist:
+        return Response(
+            {
+                'error': 'Lab test not found.'
+            },
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    # --------------------------------
+    # GET
+    # --------------------------------
+
+    if request.method == 'GET':
+
+        # Patient → own tests only
+        if request.user.role == User.Role.PATIENT:
+
+            if lab_test.patient.user_id != request.user.id:
+                return Response(
+                    {
+                        'error':
+                        'You can only view your own lab tests.'
+                    },
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+        # Doctor → own tests only
+        elif request.user.role == User.Role.DOCTOR:
+
+            if lab_test.doctor.user_id != request.user.id:
+                return Response(
+                    {
+                        'error':
+                        'You can only view lab tests for your patients.'
+                    },
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+        serializer = LabTestSerializer(lab_test)
+
+        return Response(
+            serializer.data,
+            status=status.HTTP_200_OK
+        )
+
+    # --------------------------------
+    # PUT / PATCH
+    # --------------------------------
+
+    if request.method in ['PUT', 'PATCH']:
+
+        # Only Doctor and Admin can update
+        if request.user.role not in [
+            User.Role.DOCTOR,
+            User.Role.ADMIN
+        ]:
+            return Response(
+                {
+                    'error':
+                    'You do not have permission to update lab tests.'
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # --------------------------------
+        # Doctor ownership
+        # --------------------------------
+
+        if request.user.role == User.Role.DOCTOR:
+
+            if lab_test.doctor.user_id != request.user.id:
+                return Response(
+                    {
+                        'error':
+                        'You can only update lab tests for your patients.'
+                    },
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+        # --------------------------------
+        # Prevent relationship changes
+        # --------------------------------
+
+        protected_fields = [
+            'patient',
+            'doctor',
+            'medical_record'
+        ]
+
+        for field in protected_fields:
+
+            if field in request.data:
+
+                return Response(
+                    {
+                        'error':
+                        f'{field} cannot be changed.'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        # --------------------------------
+        # Status validation
+        # --------------------------------
+
+        new_status = request.data.get(
+            'status',
+            lab_test.status
+        )
+
+        allowed_statuses = [
+            LabTest.Status.REQUESTED,
+            LabTest.Status.IN_PROGRESS,
+            LabTest.Status.COMPLETED,
+            LabTest.Status.CANCELLED
+        ]
+
+        if new_status not in allowed_statuses:
+
+            return Response(
+                {
+                    'error':
+                    'Invalid lab test status.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # --------------------------------
+        # Status transition validation
+        # --------------------------------
+
+        current_status = lab_test.status
+
+        valid_transitions = {
+            LabTest.Status.REQUESTED: [
+                LabTest.Status.IN_PROGRESS,
+                LabTest.Status.CANCELLED
+            ],
+
+            LabTest.Status.IN_PROGRESS: [
+                LabTest.Status.COMPLETED,
+                LabTest.Status.CANCELLED
+            ],
+
+            LabTest.Status.COMPLETED: [],
+
+            LabTest.Status.CANCELLED: []
+        }
+
+        if (
+            new_status != current_status
+            and
+            new_status not in valid_transitions[current_status]
+        ):
+
+            return Response(
+                {
+                    'error':
+                    f'Cannot change lab test status from '
+                    f'{current_status} to {new_status}.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # --------------------------------
+        # Update
+        # --------------------------------
+
+        serializer = LabTestSerializer(
+            lab_test,
+            data=request.data,
+            partial=(request.method == 'PATCH')
+        )
+
+        if serializer.is_valid():
+
+            lab_test = serializer.save()
+
+            return Response(
+                LabTestSerializer(lab_test).data,
+                status=status.HTTP_200_OK
+            )
+
+        return Response(
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def lab_result_list_create(request):
+
+    # --------------------------------
+    # GET
+    # --------------------------------
+
+    if request.method == 'GET':
+
+        results = LabResult.objects.select_related(
+            'lab_test',
+            'lab_test__patient__user',
+            'lab_test__doctor__user'
+        ).all()
+
+        # Patient → only their own results
+        if request.user.role == User.Role.PATIENT:
+
+            results = results.filter(
+                lab_test__patient__user=request.user
+            )
+
+        # Doctor → only results for their patients
+        elif request.user.role == User.Role.DOCTOR:
+
+            results = results.filter(
+                lab_test__doctor__user=request.user
+            )
+
+        # Admin / Receptionist → all results
+
+        serializer = LabResultSerializer(
+            results,
+            many=True
+        )
+
+        return Response(serializer.data)
+
+    # --------------------------------
+    # POST
+    # --------------------------------
+
+    elif request.method == 'POST':
+
+        # Only Doctor and Admin can create results
+        if request.user.role not in [
+            User.Role.DOCTOR,
+            User.Role.ADMIN
+        ]:
+            return Response(
+                {
+                    'error':
+                    'You do not have permission to create lab results.'
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        lab_test_id = request.data.get(
+            'lab_test'
+        )
+
+        if not lab_test_id:
+            return Response(
+                {
+                    'error':
+                    'Lab test is required.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # --------------------------------
+        # Get lab test
+        # --------------------------------
+
+        try:
+
+            lab_test = LabTest.objects.select_related(
+                'patient',
+                'doctor'
+            ).get(
+                id=lab_test_id
+            )
+
+        except LabTest.DoesNotExist:
+
+            return Response(
+                {
+                    'error':
+                    'Lab test not found.'
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # --------------------------------
+        # Lab test must be completed
+        # --------------------------------
+
+        if lab_test.status != LabTest.Status.COMPLETED:
+
+            return Response(
+                {
+                    'error':
+                    'Lab result can only be created for a completed lab test.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # --------------------------------
+        # Doctor ownership
+        # --------------------------------
+
+        if request.user.role == User.Role.DOCTOR:
+
+            if lab_test.doctor.user_id != request.user.id:
+
+                return Response(
+                    {
+                        'error':
+                        'You can only create results for your own patients.'
+                    },
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+        # --------------------------------
+        # Prevent duplicate result
+        # --------------------------------
+
+        if LabResult.objects.filter(
+            lab_test=lab_test
+        ).exists():
+
+            return Response(
+                {
+                    'error':
+                    'A result already exists for this lab test.'
+                },
+                status=status.HTTP_409_CONFLICT
+            )
+
+        # --------------------------------
+        # Create result
+        # --------------------------------
+
+        data = {
+            'lab_test': lab_test.id,
+            'result': request.data.get(
+                'result'
+            ),
+            'normal_range': request.data.get(
+                'normal_range',
+                ''
+            ),
+            'remarks': request.data.get(
+                'remarks',
+                ''
+            ),
+            'result_date': request.data.get(
+                'result_date'
+            )
+        }
+
+        serializer = LabResultSerializer(
+            data=data
+        )
+
+        if serializer.is_valid():
+
+            lab_result = serializer.save()
+
+            return Response(
+                LabResultSerializer(lab_result).data,
+                status=status.HTTP_201_CREATED
+            )
+
+        return Response(
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+
+@api_view(['GET', 'PUT', 'PATCH'])
+@permission_classes([IsAuthenticated])
+def lab_result_detail(request, pk):
+
+    try:
+        lab_result = LabResult.objects.select_related(
+            'lab_test',
+            'lab_test__patient__user',
+            'lab_test__doctor__user'
+        ).get(
+            id=pk
+        )
+
+    except LabResult.DoesNotExist:
+        return Response(
+            {
+                'error': 'Lab result not found.'
+            },
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    # --------------------------------
+    # GET
+    # --------------------------------
+
+    if request.method == 'GET':
+
+        # Patient → own result only
+        if request.user.role == User.Role.PATIENT:
+
+            if lab_result.lab_test.patient.user_id != request.user.id:
+                return Response(
+                    {
+                        'error':
+                        'You can only view your own lab results.'
+                    },
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+        # Doctor → own patients only
+        elif request.user.role == User.Role.DOCTOR:
+
+            if lab_result.lab_test.doctor.user_id != request.user.id:
+                return Response(
+                    {
+                        'error':
+                        'You can only view lab results for your patients.'
+                    },
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+        serializer = LabResultSerializer(lab_result)
+
+        return Response(
+            serializer.data,
+            status=status.HTTP_200_OK
+        )
+
+    # --------------------------------
+    # PUT / PATCH
+    # --------------------------------
+
+    if request.method in ['PUT', 'PATCH']:
+
+        # Only Doctor and Admin can update
+        if request.user.role not in [
+            User.Role.DOCTOR,
+            User.Role.ADMIN
+        ]:
+            return Response(
+                {
+                    'error':
+                    'You do not have permission to update lab results.'
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # --------------------------------
+        # Doctor ownership
+        # --------------------------------
+
+        if request.user.role == User.Role.DOCTOR:
+
+            if lab_result.lab_test.doctor.user_id != request.user.id:
+                return Response(
+                    {
+                        'error':
+                        'You can only update results for your patients.'
+                    },
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+        # --------------------------------
+        # Prevent lab test change
+        # --------------------------------
+
+        if 'lab_test' in request.data:
+
+            return Response(
+                {
+                    'error':
+                    'Lab test cannot be changed.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # --------------------------------
+        # Update
+        # --------------------------------
+
+        serializer = LabResultSerializer(
+            lab_result,
+            data=request.data,
+            partial=(request.method == 'PATCH')
+        )
+
+        if serializer.is_valid():
+
+            lab_result = serializer.save()
+
+            return Response(
+                LabResultSerializer(lab_result).data,
                 status=status.HTTP_200_OK
             )
 

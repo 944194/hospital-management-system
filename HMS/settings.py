@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'prescriptions',
     'api',
     'billing',
+    'lab_tests',
 ]
 
 MIDDLEWARE = [

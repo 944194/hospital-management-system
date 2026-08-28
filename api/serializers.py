@@ -7,6 +7,8 @@ from appointments.models import Appointment
 from medical_records.models import MedicalRecord
 from prescriptions.models import Prescription
 from billing.models import Bill
+from lab_tests.models import LabTest
+from lab_tests.models import LabResult
 
 
 User = get_user_model()
@@ -706,6 +708,106 @@ class BillSerializer(serializers.ModelSerializer):
             'appointment_time',
             'consultation_fee',
             'total_amount',
+            'created_at',
+            'updated_at',
+        ]
+
+
+
+class LabTestSerializer(serializers.ModelSerializer):
+
+    patient_name = serializers.CharField(
+        source='patient.user.get_full_name',
+        read_only=True
+    )
+
+    doctor_name = serializers.CharField(
+        source='doctor.user.get_full_name',
+        read_only=True
+    )
+
+    medical_record_id = serializers.IntegerField(
+        source='medical_record.id',
+        read_only=True
+    )
+
+    class Meta:
+        model = LabTest
+
+        fields = [
+            'id',
+            'patient',
+            'patient_name',
+            'doctor',
+            'doctor_name',
+            'medical_record',
+            'medical_record_id',
+            'test_name',
+            'test_type',
+            'status',
+            'test_date',
+            'notes',
+            'created_at',
+            'updated_at',
+        ]
+
+        read_only_fields = [
+            'id',
+            'patient_name',
+            'doctor_name',
+            'medical_record_id',
+            'created_at',
+            'updated_at',
+        ]
+
+
+
+class LabResultSerializer(serializers.ModelSerializer):
+
+    lab_test_name = serializers.CharField(
+        source='lab_test.test_name',
+        read_only=True
+    )
+
+    patient_name = serializers.CharField(
+        source='lab_test.patient.user.get_full_name',
+        read_only=True
+    )
+
+    doctor_name = serializers.CharField(
+        source='lab_test.doctor.user.get_full_name',
+        read_only=True
+    )
+
+    lab_test_status = serializers.CharField(
+        source='lab_test.status',
+        read_only=True
+    )
+
+    class Meta:
+        model = LabResult
+
+        fields = [
+            'id',
+            'lab_test',
+            'lab_test_name',
+            'patient_name',
+            'doctor_name',
+            'lab_test_status',
+            'result',
+            'normal_range',
+            'remarks',
+            'result_date',
+            'created_at',
+            'updated_at',
+        ]
+
+        read_only_fields = [
+            'id',
+            'lab_test_name',
+            'patient_name',
+            'doctor_name',
+            'lab_test_status',
             'created_at',
             'updated_at',
         ]

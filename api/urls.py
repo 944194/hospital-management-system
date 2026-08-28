@@ -19,6 +19,10 @@ from .views import (
     prescription_detail,
     bill_list_create,
     bill_detail,
+    lab_test_list_create,
+    lab_test_detail,
+    lab_result_list_create,
+    lab_result_detail,
 )
 
 from rest_framework_simplejwt.views import (
@@ -151,4 +155,28 @@ urlpatterns = [
     bill_detail,
     name='bill_detail'
     ),
+
+    path(
+    'lab-tests/',
+    lab_test_list_create,
+    name='lab_test_list_create'
+    ),
+
+    path(
+    'lab-tests/<int:pk>/',
+    lab_test_detail,
+    name='lab_test_detail'
+    ),
+
+    path(
+    'lab-results/',
+    lab_result_list_create,
+    name='lab_result_list_create'
+    ),
+
+    path(
+    'lab-results/<int:pk>/',
+    lab_result_detail,
+    name='lab_result_detail'
+),
 ]
