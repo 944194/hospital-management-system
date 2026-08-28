@@ -23,6 +23,7 @@ from .views import (
     lab_test_detail,
     lab_result_list_create,
     lab_result_detail,
+    admin_dashboard,
 )
 
 from rest_framework_simplejwt.views import (
@@ -178,5 +179,13 @@ urlpatterns = [
     'lab-results/<int:pk>/',
     lab_result_detail,
     name='lab_result_detail'
-),
+    ),
+
+
+    path(
+    'admin/dashboard/',
+    admin_dashboard,
+    name='admin_dashboard'
+    ),
+
 ]

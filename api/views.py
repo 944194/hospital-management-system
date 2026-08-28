@@ -2876,3 +2876,183 @@ def lab_result_detail(request, pk):
             serializer.errors,
             status=status.HTTP_400_BAD_REQUEST
         )
+
+
+
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def admin_dashboard(request):
+
+    # --------------------------------
+    # Admin only
+    # --------------------------------
+
+    if request.user.role != User.Role.ADMIN:
+
+        return Response(
+            {
+                'error':
+                'Only Admin can access the dashboard.'
+            },
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    # --------------------------------
+    # Counts
+    # --------------------------------
+
+    total_patients = PatientProfile.objects.count()
+
+    total_doctors = DoctorProfile.objects.count()
+
+    total_appointments = Appointment.objects.count()
+
+    total_medical_records = MedicalRecord.objects.count()
+
+    total_prescriptions = Prescription.objects.count()
+
+    total_lab_tests = LabTest.objects.count()
+
+    total_lab_results = LabResult.objects.count()
+
+    total_bills = Bill.objects.count()
+
+    # --------------------------------
+    # Appointment statistics
+    # --------------------------------
+
+    scheduled_appointments = Appointment.objects.filter(
+        status=Appointment.Status.SCHEDULED
+    ).count()
+
+    confirmed_appointments = Appointment.objects.filter(
+        status=Appointment.Status.CONFIRMED
+    ).count()
+
+    completed_appointments = Appointment.objects.filter(
+        status=Appointment.Status.COMPLETED
+    ).count()
+
+    cancelled_appointments = Appointment.objects.filter(
+        status=Appointment.Status.CANCELLED
+    ).count()
+
+    no_show_appointments = Appointment.objects.filter(
+        status=Appointment.Status.NO_SHOW
+    ).count()
+
+    # --------------------------------
+    # Billing statistics
+    # --------------------------------
+
+    from django.db.models import Sum
+
+    total_billed_amount = Bill.objects.exclude(
+        payment_status=Bill.PaymentStatus.CANCELLED
+    ).aggregate(
+        total=Sum('total_amount')
+    )['total'] or 0
+
+    total_collected_amount = Bill.objects.aggregate(
+        total=Sum('paid_amount')
+    )['total'] or 0
+
+    outstanding_amount = (
+        total_billed_amount -
+        total_collected_amount
+    )
+
+    pending_bills = Bill.objects.filter(
+        payment_status=Bill.PaymentStatus.PENDING
+    ).count()
+
+    partially_paid_bills = Bill.objects.filter(
+        payment_status=Bill.PaymentStatus.PARTIALLY_PAID
+    ).count()
+
+    paid_bills = Bill.objects.filter(
+        payment_status=Bill.PaymentStatus.PAID
+    ).count()
+
+    cancelled_bills = Bill.objects.filter(
+        payment_status=Bill.PaymentStatus.CANCELLED
+    ).count()
+
+    # --------------------------------
+    # Lab Test statistics
+    # --------------------------------
+
+    requested_lab_tests = LabTest.objects.filter(
+        status=LabTest.Status.REQUESTED
+    ).count()
+
+    in_progress_lab_tests = LabTest.objects.filter(
+        status=LabTest.Status.IN_PROGRESS
+    ).count()
+
+    completed_lab_tests = LabTest.objects.filter(
+        status=LabTest.Status.COMPLETED
+    ).count()
+
+    cancelled_lab_tests = LabTest.objects.filter(
+        status=LabTest.Status.CANCELLED
+    ).count()
+
+    # --------------------------------
+    # Response
+    # --------------------------------
+
+    return Response(
+        {
+            'patients': {
+                'total': total_patients
+            },
+
+            'doctors': {
+                'total': total_doctors
+            },
+
+            'appointments': {
+                'total': total_appointments,
+                'scheduled': scheduled_appointments,
+                'confirmed': confirmed_appointments,
+                'completed': completed_appointments,
+                'cancelled': cancelled_appointments,
+                'no_show': no_show_appointments
+            },
+
+            'medical_records': {
+                'total': total_medical_records
+            },
+
+            'prescriptions': {
+                'total': total_prescriptions
+            },
+
+            'lab_tests': {
+                'total': total_lab_tests,
+                'requested': requested_lab_tests,
+                'in_progress': in_progress_lab_tests,
+                'completed': completed_lab_tests,
+                'cancelled': cancelled_lab_tests
+            },
+
+            'lab_results': {
+                'total': total_lab_results
+            },
+
+            'billing': {
+                'total_bills': total_bills,
+                'total_billed_amount': total_billed_amount,
+                'total_collected_amount': total_collected_amount,
+                'outstanding_amount': outstanding_amount,
+                'pending_bills': pending_bills,
+                'partially_paid_bills': partially_paid_bills,
+                'paid_bills': paid_bills,
+                'cancelled_bills': cancelled_bills
+            }
+        },
+        status=status.HTTP_200_OK
+    )
