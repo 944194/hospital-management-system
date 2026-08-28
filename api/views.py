@@ -1856,6 +1856,7 @@ def bill_list_create(request):
         )
 
 
+
 @api_view(['GET', 'PUT', 'PATCH'])
 @permission_classes([IsAuthenticated])
 def bill_detail(request, pk):
@@ -2009,6 +2010,7 @@ def bill_detail(request, pk):
 
         if payment_status not in [
             Bill.PaymentStatus.PENDING,
+            Bill.PaymentStatus.PARTIALLY_PAID,
             Bill.PaymentStatus.PAID,
             Bill.PaymentStatus.CANCELLED
         ]:
@@ -2022,21 +2024,92 @@ def bill_detail(request, pk):
             )
 
         # --------------------------------
-        # PAID validation
+        # Get paid amount
         # --------------------------------
 
-        if payment_status == Bill.PaymentStatus.PAID:
+        from decimal import Decimal
 
-            paid_amount = request.data.get(
-                'paid_amount',
-                bill.paid_amount
-            )
+        paid_amount = request.data.get(
+            'paid_amount',
+            bill.paid_amount
+        )
 
-            from decimal import Decimal
+        try:
 
             paid_amount = Decimal(
                 str(paid_amount)
             )
+
+        except Exception:
+
+            return Response(
+                {
+                    'error':
+                    'Paid amount must be a valid number.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # --------------------------------
+        # PENDING validation
+        # --------------------------------
+
+        if payment_status == Bill.PaymentStatus.PENDING:
+
+            if paid_amount != Decimal('0.00'):
+
+                return Response(
+                    {
+                        'error':
+                        'Paid amount must be 0 when payment status is PENDING.'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        # --------------------------------
+        # PARTIALLY PAID validation
+        # --------------------------------
+
+        elif payment_status == Bill.PaymentStatus.PARTIALLY_PAID:
+
+            if paid_amount <= Decimal('0.00'):
+
+                return Response(
+                    {
+                        'error':
+                        'Paid amount must be greater than 0 for PARTIALLY_PAID status.'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            if paid_amount >= bill.total_amount:
+
+                return Response(
+                    {
+                        'error':
+                        'Paid amount must be less than the total amount for PARTIALLY_PAID status.'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            if not request.data.get(
+                'payment_method',
+                bill.payment_method
+            ):
+
+                return Response(
+                    {
+                        'error':
+                        'Payment method is required when payment status is PARTIALLY_PAID.'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        # --------------------------------
+        # PAID validation
+        # --------------------------------
+
+        elif payment_status == Bill.PaymentStatus.PAID:
 
             if paid_amount != bill.total_amount:
 
@@ -2057,6 +2130,22 @@ def bill_detail(request, pk):
                     {
                         'error':
                         'Payment method is required when payment status is PAID.'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        # --------------------------------
+        # CANCELLED validation
+        # --------------------------------
+
+        elif payment_status == Bill.PaymentStatus.CANCELLED:
+
+            if paid_amount != Decimal('0.00'):
+
+                return Response(
+                    {
+                        'error':
+                        'Paid amount must be 0 when payment status is CANCELLED.'
                     },
                     status=status.HTTP_400_BAD_REQUEST
                 )
@@ -2084,7 +2173,6 @@ def bill_detail(request, pk):
             serializer.errors,
             status=status.HTTP_400_BAD_REQUEST
         )
-
 
 
 
