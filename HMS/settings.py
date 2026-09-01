@@ -51,6 +51,9 @@ INSTALLED_APPS = [
     'api',
     'billing',
     'lab_tests',
+    'admissions',
+    'rooms',
+    'audit_logs',
 ]
 
 MIDDLEWARE = [

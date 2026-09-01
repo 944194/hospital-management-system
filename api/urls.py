@@ -24,6 +24,13 @@ from .views import (
     lab_result_list_create,
     lab_result_detail,
     admin_dashboard,
+    admission_list_create,
+    admission_detail,
+    room_list_create,
+    room_detail,
+    bed_list_create,
+    bed_detail,
+    audit_log_list,
 )
 
 from rest_framework_simplejwt.views import (
@@ -187,5 +194,49 @@ urlpatterns = [
     admin_dashboard,
     name='admin_dashboard'
     ),
+
+    path(
+    'admissions/',
+    admission_list_create,
+    name='admission_list_create'
+    ),
+
+    path(
+    'admissions/<int:pk>/',
+    admission_detail,
+    name='admission_detail'
+    ),
+
+    path(
+    'rooms/',
+    room_list_create,
+    name='room_list_create'
+    ),
+
+    path(
+    'rooms/<int:pk>/',
+    room_detail,
+    name='room_detail'
+    ),
+
+
+    path(
+    'beds/',
+    bed_list_create,
+    name='bed_list_create'
+    ),
+    
+
+    path(
+    'beds/<int:pk>/',
+    bed_detail,
+    name='bed_detail'
+    ),
+
+    path(
+    'audit-logs/',
+    audit_log_list,
+    name='audit_log_list'
+),
 
 ]

@@ -9,6 +9,9 @@ from prescriptions.models import Prescription
 from billing.models import Bill
 from lab_tests.models import LabTest
 from lab_tests.models import LabResult
+from admissions.models import Admission
+from rooms.models import Room, Bed
+from audit_logs.models import AuditLog
 
 
 User = get_user_model()
@@ -106,8 +109,8 @@ class DoctorSerializer(serializers.ModelSerializer):
     )
 
     aadhaar_number = serializers.CharField(
-        required=False,
-        allow_blank=True
+        source='user.aadhaar_number',
+        read_only=True
     )
 
     department_name = serializers.CharField(
@@ -649,6 +652,7 @@ class PrescriptionSerializer(serializers.ModelSerializer):
 
         read_only_fields = [
             'id',
+            'medical_record',
             'medical_record_id',
             'patient_name',
             'doctor_name',
@@ -753,8 +757,11 @@ class LabTestSerializer(serializers.ModelSerializer):
 
         read_only_fields = [
             'id',
+            'patient',
             'patient_name',
+            'doctor',
             'doctor_name',
+            'medical_record',
             'medical_record_id',
             'created_at',
             'updated_at',
@@ -804,10 +811,180 @@ class LabResultSerializer(serializers.ModelSerializer):
 
         read_only_fields = [
             'id',
+            'lab_test',
             'lab_test_name',
             'patient_name',
             'doctor_name',
             'lab_test_status',
             'created_at',
             'updated_at',
+        ]
+
+
+
+class AdmissionSerializer(serializers.ModelSerializer):
+
+    patient_name = serializers.CharField(
+        source='patient.user.get_full_name',
+        read_only=True
+    )
+
+    doctor_name = serializers.CharField(
+        source='doctor.user.get_full_name',
+        read_only=True
+    )
+
+    department_name = serializers.CharField(
+        source='department.name',
+        read_only=True
+    )
+
+    room_number = serializers.CharField(
+        source='room.room_number',
+        read_only=True
+    )
+
+    bed_number = serializers.CharField(
+        source='bed.bed_number',
+        read_only=True
+    )
+
+    class Meta:
+        model = Admission
+
+        fields = [
+            'id',
+            'patient',
+            'patient_name',
+            'doctor',
+            'doctor_name',
+            'department',
+            'department_name',
+            'room',
+            'room_number',
+            'bed',
+            'bed_number',
+            'admission_date',
+            'discharge_date',
+            'reason',
+            'status',
+            'notes',
+            'created_at',
+            'updated_at',
+        ]
+
+        read_only_fields = [
+            'id',
+            'patient_name',
+            'doctor_name',
+            'department_name',
+            'room_number',
+            'bed_number',
+            'created_at',
+            'updated_at',
+        ]
+
+
+
+
+class RoomSerializer(serializers.ModelSerializer):
+
+    department_name = serializers.CharField(
+        source='department.name',
+        read_only=True
+    )
+
+    bed_count = serializers.IntegerField(
+        source='beds.count',
+        read_only=True
+    )
+
+    class Meta:
+        model = Room
+
+        fields = [
+            'id',
+            'room_number',
+            'room_type',
+            'department',
+            'department_name',
+            'status',
+            'bed_count',
+            'created_at',
+            'updated_at',
+        ]
+
+        read_only_fields = [
+            'id',
+            'department_name',
+            'bed_count',
+            'created_at',
+            'updated_at',
+        ]
+
+
+class BedSerializer(serializers.ModelSerializer):
+
+    room_number = serializers.CharField(
+        source='room.room_number',
+        read_only=True
+    )
+
+    department_name = serializers.CharField(
+        source='room.department.name',
+        read_only=True
+    )
+
+    class Meta:
+        model = Bed
+
+        fields = [
+            'id',
+            'room',
+            'room_number',
+            'bed_number',
+            'status',
+            'department_name',
+            'created_at',
+            'updated_at',
+        ]
+
+        read_only_fields = [
+            'id',
+            'room_number',
+            'department_name',
+            'created_at',
+            'updated_at',
+        ]
+
+
+
+
+class AuditLogSerializer(serializers.ModelSerializer):
+
+    username = serializers.CharField(
+        source='user.username',
+        read_only=True
+    )
+
+    class Meta:
+        model = AuditLog
+
+        fields = [
+            'id',
+            'user',
+            'username',
+            'action',
+            'module',
+            'description',
+            'ip_address',
+            'created_at',
+        ]
+
+        read_only_fields = [
+            'id',
+            'user',
+            'username',
+            'ip_address',
+            'created_at',
         ]

@@ -23,6 +23,10 @@ from medical_records.models import MedicalRecord
 from prescriptions.models import Prescription
 from billing.models import Bill
 from lab_tests.models import LabTest, LabResult
+from admissions.models import Admission
+from rooms.models import Room, Bed
+from audit_logs.models import AuditLog
+from audit_logs.utils import create_audit_log
 
 
 
@@ -47,6 +51,10 @@ from .serializers import (
     BillSerializer,
     LabTestSerializer,
     LabResultSerializer,
+    AdmissionSerializer,
+    RoomSerializer, 
+    BedSerializer,
+    AuditLogSerializer,
 )
 
 
@@ -603,6 +611,41 @@ def patient_list_create(request):
             'user'
         ).all()
 
+
+        # --------------------------------
+        # Admin / Receptionist
+        # → Can view all patients
+        # --------------------------------
+
+        if request.user.role in [
+            User.Role.ADMIN,
+            User.Role.RECEPTIONIST
+        ]:
+            pass
+
+        # --------------------------------
+        # Patient
+        # → Can view only their own profile
+        # --------------------------------
+
+        elif request.user.role == User.Role.PATIENT:
+
+            patients = patients.filter(
+                user=request.user
+            )
+
+        # --------------------------------
+        # Doctor
+        # → Can view patients associated
+        #   with their appointments
+        # --------------------------------
+
+        elif request.user.role == User.Role.DOCTOR:
+
+            patients = patients.filter(
+                appointments__doctor__user=request.user
+            ).distinct()
+
         serializer = PatientSerializer(
             patients,
             many=True
@@ -794,6 +837,41 @@ def appointment_list_create(request):
             'doctor__user',
             'doctor__department'
         ).all()
+
+
+        # --------------------------------
+        # Admin / Receptionist
+        # → Can view all appointments
+        # --------------------------------
+
+        if request.user.role in [
+            User.Role.ADMIN,
+            User.Role.RECEPTIONIST
+        ]:
+            pass
+
+        # --------------------------------
+        # Doctor
+        # → Can view only appointments
+        #   assigned to them
+        # --------------------------------
+
+        elif request.user.role == User.Role.DOCTOR:
+
+            appointments = appointments.filter(
+                doctor__user=request.user
+            )
+
+    # --------------------------------
+    # Patient
+    # → Can view only their appointments
+    # --------------------------------
+
+        elif request.user.role == User.Role.PATIENT:
+
+            appointments = appointments.filter(
+                patient__user=request.user
+            )
 
         serializer = AppointmentSerializer(
             appointments,
@@ -1054,6 +1132,57 @@ def appointment_detail(request, pk):
                 appointment.appointment_time
             )
 
+
+            new_status = data.get(
+                'status',
+                appointment.status
+            )
+
+            current_status = appointment.status
+
+            # --------------------------------
+            # Status transition validation
+            # --------------------------------
+
+            allowed_transitions = {
+
+                Appointment.Status.SCHEDULED: [
+                    Appointment.Status.SCHEDULED,
+                    Appointment.Status.CONFIRMED,
+                    Appointment.Status.CANCELLED,
+                ],
+
+             Appointment.Status.CONFIRMED: [
+                    Appointment.Status.CONFIRMED,
+                    Appointment.Status.COMPLETED,
+                    Appointment.Status.CANCELLED,
+                    Appointment.Status.NO_SHOW,
+                ],
+
+                Appointment.Status.COMPLETED: [
+                    Appointment.Status.COMPLETED,
+                ],
+
+                Appointment.Status.CANCELLED: [
+                    Appointment.Status.CANCELLED,
+                ],
+
+                Appointment.Status.NO_SHOW: [
+                    Appointment.Status.NO_SHOW,
+                ],
+            }
+
+            if new_status not in allowed_transitions[current_status]:
+
+                return Response(
+                    {
+                        'error':
+                        f'Cannot change appointment status from '
+                        f'{current_status} to {new_status}.'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
             doctor = appointment.doctor
 
             # Prevent double booking during update
@@ -1114,6 +1243,21 @@ def appointment_detail(request, pk):
 
             # Instead of physically deleting it,
             # mark it as cancelled.
+
+            if appointment.status in [
+                Appointment.Status.COMPLETED,
+                Appointment.Status.CANCELLED,
+                Appointment.Status.NO_SHOW
+            ]:
+                return Response(
+                    {
+                        'error':
+                        f'Appointment cannot be cancelled because its '
+                        f'current status is {appointment.status}.'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
             appointment.status = Appointment.Status.CANCELLED
             appointment.save(
                 update_fields=['status']
@@ -1138,6 +1282,22 @@ def appointment_detail(request, pk):
                     },
                     status=status.HTTP_403_FORBIDDEN
                 )
+            
+
+            if appointment.status in [
+                Appointment.Status.COMPLETED,
+                Appointment.Status.CANCELLED,
+                Appointment.Status.NO_SHOW
+            ]:
+                return Response(
+                    {
+                    'error':
+                        f'Appointment cannot be cancelled because its '
+                        f'current status is {appointment.status}.'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
 
             appointment.status = Appointment.Status.CANCELLED
             appointment.save(
@@ -1152,20 +1312,39 @@ def appointment_detail(request, pk):
                 status=status.HTTP_200_OK
             )
 
-        # Admin and Receptionist can actually delete
+        # Admin and Receptionist can cancel appointments
         elif request.user.role in [
             User.Role.ADMIN,
             User.Role.RECEPTIONIST
         ]:
 
-            appointment.delete()
+            # Prevent cancellation of terminal appointments
+            if appointment.status in [
+                Appointment.Status.COMPLETED,
+                Appointment.Status.CANCELLED,
+                Appointment.Status.NO_SHOW
+            ]:
+                return Response(
+                    {
+                        'error':
+                        f'Appointment cannot be cancelled because its '
+                        f'current status is {appointment.status}.'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            appointment.status = Appointment.Status.CANCELLED
+
+            appointment.save(
+                update_fields=['status']
+            )
 
             return Response(
                 {
                     'message':
-                    'Appointment deleted successfully.'
+                    'Appointment cancelled successfully.'
                 },
-                status=status.HTTP_204_NO_CONTENT
+                status=status.HTTP_200_OK
             )
 
 
@@ -1184,6 +1363,10 @@ def medical_record_list_create(request):
             'appointment'
         ).all()
 
+        # Admin → all records
+        if request.user.role == User.Role.ADMIN:
+            pass
+
         # Doctor → only their records
         if request.user.role == User.Role.DOCTOR:
             records = records.filter(
@@ -1196,8 +1379,16 @@ def medical_record_list_create(request):
                 patient__user=request.user
             )
 
-        # Admin → all records
-        # Receptionist → all records for now
+        # Receptionist → no access
+        elif request.user.role == User.Role.RECEPTIONIST:
+
+            return Response(
+                {
+                    'error':
+                    'You do not have permission to view medical records.'
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
 
         serializer = MedicalRecordSerializer(
             records,
@@ -1440,8 +1631,20 @@ def prescription_list_create(request):
                 medical_record__patient__user=request.user
             )
 
-        # Admin → all prescriptions
-        # Receptionist → all prescriptions for now
+         # Admin → all prescriptions
+        elif request.user.role == User.Role.ADMIN:
+            pass
+
+        # Receptionist → no access
+        elif request.user.role == User.Role.RECEPTIONIST:
+
+            return Response(
+                {
+                    'error':
+                    'You do not have permission to view prescriptions.'
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
 
         serializer = PrescriptionSerializer(
             prescriptions,
@@ -1845,6 +2048,19 @@ def bill_list_create(request):
                 total_amount=total_amount
             )
 
+
+            create_audit_log(
+                user=request.user,
+                action=AuditLog.Action.CREATE,
+                module='billing',
+                description=(
+                    f'Created bill #{bill.id} '
+                    f'for appointment #{appointment.id}. '
+                    f'Total amount: {bill.total_amount}.'
+                ),
+                ip_address=request.META.get('REMOTE_ADDR')
+            )
+
             return Response(
                 BillSerializer(bill).data,
                 status=status.HTTP_201_CREATED
@@ -2162,7 +2378,23 @@ def bill_detail(request, pk):
 
         if serializer.is_valid():
 
+            old_payment_status = bill.payment_status
+            old_paid_amount = bill.paid_amount
             bill = serializer.save()
+
+            create_audit_log(
+                user=request.user,
+                action=AuditLog.Action.UPDATE,
+                module='billing',
+                description=(
+                    f'Updated bill #{bill.id} payment status '
+                    f'from {old_payment_status} to '
+                    f'{bill.payment_status}. '
+                    f'Paid amount changed from '
+                    f'{old_paid_amount} to {bill.paid_amount}.'
+                ),
+                ip_address=request.META.get('REMOTE_ADDR')
+            )
 
             return Response(
                 BillSerializer(bill).data,
@@ -2206,7 +2438,19 @@ def lab_test_list_create(request):
                 doctor__user=request.user
             )
 
-        # Admin / Receptionist → all lab tests
+        # Admin → all lab tests
+        elif request.user.role == User.Role.ADMIN:
+            pass
+
+        # Receptionist → no access
+        elif request.user.role == User.Role.RECEPTIONIST:
+            return Response(
+                {
+                    'error':
+                    'You do not have permission to view lab tests.'
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
 
         serializer = LabTestSerializer(
             lab_tests,
@@ -2349,6 +2593,18 @@ def lab_test_list_create(request):
 
             lab_test = serializer.save()
 
+            create_audit_log(
+                user=request.user,
+                action=AuditLog.Action.CREATE,
+                module='lab_tests',
+                description=(
+                    f'Created lab test #{lab_test.id} '
+                    f'({lab_test.test_name}) for '
+                    f'patient {lab_test.patient.patient_id}.'
+                ),
+                ip_address=request.META.get('REMOTE_ADDR')
+            )
+
             return Response(
                 LabTestSerializer(lab_test).data,
                 status=status.HTTP_201_CREATED
@@ -2411,6 +2667,16 @@ def lab_test_detail(request, pk):
                     },
                     status=status.HTTP_403_FORBIDDEN
                 )
+
+        elif request.user.role == User.Role.RECEPTIONIST:
+
+            return Response(
+                {
+                    'error':
+                    'You do not have permission to view lab tests.'
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
 
         serializer = LabTestSerializer(lab_test)
 
@@ -2548,9 +2814,24 @@ def lab_test_detail(request, pk):
             partial=(request.method == 'PATCH')
         )
 
-        if serializer.is_valid():
+        if serializer.is_valid():   
+
+            old_status = lab_test.status
 
             lab_test = serializer.save()
+
+
+            create_audit_log(
+                user=request.user,
+                action=AuditLog.Action.UPDATE,
+                module='lab_tests',
+                description=(
+                    f'Updated lab test #{lab_test.id} '
+                    f'({lab_test.test_name}) from '
+                    f'{old_status} to {lab_test.status}.'
+                ),
+                ip_address=request.META.get('REMOTE_ADDR')
+            )
 
             return Response(
                 LabTestSerializer(lab_test).data,
@@ -2595,7 +2876,19 @@ def lab_result_list_create(request):
                 lab_test__doctor__user=request.user
             )
 
-        # Admin / Receptionist → all results
+        # Admin → all results
+        elif request.user.role == User.Role.ADMIN:
+            pass
+
+        # Receptionist → no access
+        elif request.user.role == User.Role.RECEPTIONIST:
+            return Response(
+                {
+                    'error':
+                    'You do not have permission to view lab results.'
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
 
         serializer = LabResultSerializer(
             results,
@@ -2735,6 +3028,17 @@ def lab_result_list_create(request):
 
             lab_result = serializer.save()
 
+            create_audit_log(
+                user=request.user,
+                action=AuditLog.Action.CREATE,
+                module='lab_results',
+                description=(
+                    f'Created lab result #{lab_result.id} '
+                    f'for lab test #{lab_test.id}.'
+                ),
+                ip_address=request.META.get('REMOTE_ADDR')
+            )
+
             return Response(
                 LabResultSerializer(lab_result).data,
                 status=status.HTTP_201_CREATED
@@ -2797,6 +3101,16 @@ def lab_result_detail(request, pk):
                     },
                     status=status.HTTP_403_FORBIDDEN
                 )
+
+        elif request.user.role == User.Role.RECEPTIONIST:
+
+            return Response(
+                {
+                    'error':
+                    'You do not have permission to view lab results.'
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
 
         serializer = LabResultSerializer(lab_result)
 
@@ -2866,6 +3180,17 @@ def lab_result_detail(request, pk):
         if serializer.is_valid():
 
             lab_result = serializer.save()
+
+            create_audit_log(
+                user=request.user,
+                action=AuditLog.Action.UPDATE,
+                module='lab_results',
+                description=(
+                    f'Updated lab result #{lab_result.id} '
+                    f'for lab test #{lab_result.lab_test.id}.'
+                ),
+                ip_address=request.META.get('REMOTE_ADDR')
+            )
 
             return Response(
                 LabResultSerializer(lab_result).data,
@@ -3054,5 +3379,1280 @@ def admin_dashboard(request):
                 'cancelled_bills': cancelled_bills
             }
         },
+        status=status.HTTP_200_OK
+    )
+
+
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def admission_list_create(request):
+
+    # --------------------------------
+    # GET
+    # --------------------------------
+
+    if request.method == 'GET':
+
+        admissions = Admission.objects.select_related(
+            'patient__user',
+            'doctor__user',
+            'department'
+        ).all()
+
+        # Patient → own admissions only
+        if request.user.role == User.Role.PATIENT:
+
+            admissions = admissions.filter(
+                patient__user=request.user
+            )
+
+        # Doctor → admissions assigned to them
+        elif request.user.role == User.Role.DOCTOR:
+
+            admissions = admissions.filter(
+                doctor__user=request.user
+            )
+
+        # Admin / Receptionist → all admissions
+
+        serializer = AdmissionSerializer(
+            admissions,
+            many=True
+        )
+
+        return Response(
+            serializer.data,
+            status=status.HTTP_200_OK
+        )
+
+    # --------------------------------
+    # POST
+    # --------------------------------
+
+    if request.method == 'POST':
+
+        # Only Admin and Receptionist can create admissions
+        if request.user.role not in [
+            User.Role.ADMIN,
+            User.Role.RECEPTIONIST
+        ]:
+
+            return Response(
+                {
+                    'error':
+                    'You do not have permission to create admissions.'
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # --------------------------------
+        # Required fields
+        # --------------------------------
+
+        patient_id = request.data.get('patient')
+
+        doctor_id = request.data.get('doctor')
+
+        department_id = request.data.get('department')
+
+        admission_date = request.data.get(
+            'admission_date'
+        )
+
+        reason = request.data.get(
+            'reason'
+        )
+
+        room_id = request.data.get('room')
+
+        bed_id = request.data.get('bed')
+
+        if not patient_id:
+
+            return Response(
+                {
+                    'error':
+                    'Patient is required.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not doctor_id:
+
+            return Response(
+                {
+                    'error':
+                    'Doctor is required.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not department_id:
+
+            return Response(
+                {
+                    'error':
+                    'Department is required.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not admission_date:
+
+            return Response(
+                {
+                    'error':
+                    'Admission date is required.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not reason:
+
+            return Response(
+                {
+                    'error':
+                    'Admission reason is required.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not room_id:
+
+            return Response(
+                {
+                    'error':
+                    'Room is required for admission.'
+                },
+                 status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not bed_id:
+
+            return Response(
+                {
+                    'error':
+                    'Bed is required for admission.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # --------------------------------
+        # Validate patient
+        # --------------------------------
+
+        try:
+
+            patient = PatientProfile.objects.get(
+                id=patient_id
+            )
+
+        except PatientProfile.DoesNotExist:
+
+            return Response(
+                {
+                    'error':
+                    'Patient not found.'
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # --------------------------------
+        # Validate doctor
+        # --------------------------------
+
+        try:
+
+            doctor = DoctorProfile.objects.select_related(
+                'department'
+            ).get(
+                id=doctor_id
+            )
+
+        except DoctorProfile.DoesNotExist:
+
+            return Response(
+                {
+                    'error':
+                    'Doctor not found.'
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # --------------------------------
+        # Validate department
+        # --------------------------------
+
+        try:
+
+            department = Department.objects.get(
+                id=department_id
+            )
+
+        except Department.DoesNotExist:
+
+            return Response(
+                {
+                    'error':
+                    'Department not found.'
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # --------------------------------
+        # Doctor / Department validation
+        # --------------------------------
+
+        if doctor.department_id != department.id:
+
+            return Response(
+                {
+                    'error':
+                    'Doctor does not belong to the selected department.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        
+        try:
+
+            room = Room.objects.select_related(
+                    'department'
+                ).get(
+                    id=room_id
+                    )
+
+        except Room.DoesNotExist:
+
+            return Response(
+                {
+                    'error':
+                    'Room not found.'
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+
+        if room.status != Room.Status.ACTIVE:
+
+            return Response(
+                {
+                    'error':
+                    'Cannot admit a patient to an inactive room.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+
+        if room.department_id != department.id:
+
+            return Response(
+                {
+                    'error':
+                    'Room does not belong to the selected department.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+
+
+
+        try:
+
+            bed = Bed.objects.select_related(
+                    'room__department'
+                ).get(
+                    id=bed_id
+            )
+
+        except Bed.DoesNotExist:
+
+             return Response(
+            {
+                'error':
+                'Bed not found.'
+            },
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+
+        if bed.room_id != room.id:
+
+            return Response(
+            {
+                'error':
+                'Bed does not belong to the selected room.'
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+        if bed.status != Bed.Status.AVAILABLE:
+
+            return Response(
+            {
+                'error':
+                'Selected bed is not available.'
+            },
+            status=status.HTTP_409_CONFLICT
+        )
+
+        
+
+        # --------------------------------
+        # Prevent duplicate active admission
+        # --------------------------------
+
+        active_admission = Admission.objects.filter(
+            patient=patient,
+            status__in=[
+                Admission.Status.ADMITTED,
+                Admission.Status.UNDER_TREATMENT
+            ]
+        ).exists()
+
+        if active_admission:
+
+            return Response(
+                {
+                    'error':
+                    'Patient already has an active admission.'
+                },
+                status=status.HTTP_409_CONFLICT
+            )
+
+        # --------------------------------
+        # Create admission
+        # --------------------------------
+
+        data = {
+            'patient': patient.id,
+            'doctor': doctor.id,
+            'department': department.id,
+            'room': room.id,
+            'bed': bed.id,
+            'admission_date': admission_date,
+            'reason': reason,
+            'status': request.data.get(
+                'status',
+                Admission.Status.ADMITTED
+            ),
+            'notes': request.data.get(
+                'notes',
+                ''
+            )
+        }
+
+        serializer = AdmissionSerializer(
+            data=data
+        )
+
+        if serializer.is_valid():
+
+            admission = serializer.save()
+
+            bed.status = Bed.Status.OCCUPIED
+            bed.save()
+
+            create_audit_log(
+                user=request.user,
+                action=AuditLog.Action.CREATE,
+                module='admissions',
+                description=(
+                    f'Created admission #{admission.id} '
+                    f'for patient {admission.patient.patient_id}.'
+                ),
+                ip_address=request.META.get('REMOTE_ADDR')
+            )
+
+
+            return Response(
+                AdmissionSerializer(admission).data,
+                status=status.HTTP_201_CREATED
+            )
+
+        return Response(
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+
+
+@api_view(['GET', 'PUT', 'PATCH'])
+@permission_classes([IsAuthenticated])
+def admission_detail(request, pk):
+
+    try:
+        admission = Admission.objects.select_related(
+            'patient__user',
+            'doctor__user',
+            'department'
+        ).get(
+            id=pk
+        )
+
+    except Admission.DoesNotExist:
+        return Response(
+            {
+                'error': 'Admission not found.'
+            },
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    # --------------------------------
+    # GET
+    # --------------------------------
+
+    if request.method == 'GET':
+
+        # Patient → own admissions only
+        if request.user.role == User.Role.PATIENT:
+
+            if admission.patient.user_id != request.user.id:
+                return Response(
+                    {
+                        'error':
+                        'You can only view your own admissions.'
+                    },
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+        # Doctor → assigned admissions only
+        elif request.user.role == User.Role.DOCTOR:
+
+            if admission.doctor.user_id != request.user.id:
+                return Response(
+                    {
+                        'error':
+                        'You can only view admissions assigned to you.'
+                    },
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+        serializer = AdmissionSerializer(admission)
+
+        return Response(
+            serializer.data,
+            status=status.HTTP_200_OK
+        )
+
+    # --------------------------------
+    # PUT / PATCH
+    # --------------------------------
+
+    if request.method in ['PUT', 'PATCH']:
+
+        # Admin and Receptionist → can update any admission
+        if request.user.role in [
+            User.Role.ADMIN,
+            User.Role.RECEPTIONIST
+        ]:
+            pass
+
+        # Doctor → can update only admissions assigned to them
+        elif request.user.role == User.Role.DOCTOR:
+
+            if admission.doctor.user_id != request.user.id:
+                return Response(
+                    {
+                        'error':
+                        'You can only update admissions assigned to you.'
+                    },
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+        # Patient → cannot update admissions
+        else:
+            return Response(
+                {
+                    'error':
+                    'You do not have permission to update admissions.'
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # --------------------------------
+        # Protected fields
+        # --------------------------------
+
+        protected_fields = [
+            'patient',
+            'doctor',
+            'department',
+            'room',
+            'bed',
+            'admission_date'
+        ]
+
+        for field in protected_fields:
+
+            if field in request.data:
+
+                return Response(
+                    {
+                        'error':
+                        f'{field} cannot be changed after admission.'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        # --------------------------------
+        # Current status
+        # --------------------------------
+
+        current_status = admission.status
+
+        new_status = request.data.get(
+            'status',
+            current_status
+        )
+
+        # --------------------------------
+        # Validate status
+        # --------------------------------
+
+        valid_statuses = [
+            Admission.Status.ADMITTED,
+            Admission.Status.UNDER_TREATMENT,
+            Admission.Status.DISCHARGED,
+            Admission.Status.CANCELLED
+        ]
+
+        if new_status not in valid_statuses:
+
+            return Response(
+                {
+                    'error':
+                    'Invalid admission status.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # --------------------------------
+        # Prevent changes after discharge
+        # --------------------------------
+
+        if current_status == Admission.Status.DISCHARGED:
+
+            if new_status != Admission.Status.DISCHARGED:
+
+                return Response(
+                    {
+                        'error':
+                        'Discharged admission cannot be changed.'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        # --------------------------------
+        # Prevent changes after cancellation
+        # --------------------------------
+
+        if current_status == Admission.Status.CANCELLED:
+
+            if new_status != Admission.Status.CANCELLED:
+
+                return Response(
+                    {
+                        'error':
+                        'Cancelled admission cannot be changed.'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        # --------------------------------
+        # Status transition validation
+        # --------------------------------
+
+        allowed_transitions = {
+
+            Admission.Status.ADMITTED: [
+                Admission.Status.ADMITTED,
+                Admission.Status.UNDER_TREATMENT,
+                Admission.Status.DISCHARGED,
+                Admission.Status.CANCELLED
+            ],
+
+            Admission.Status.UNDER_TREATMENT: [
+                Admission.Status.UNDER_TREATMENT,
+                Admission.Status.DISCHARGED
+            ],
+
+            Admission.Status.DISCHARGED: [
+                Admission.Status.DISCHARGED
+            ],
+
+            Admission.Status.CANCELLED: [
+                Admission.Status.CANCELLED
+            ]
+        }
+
+        if new_status not in allowed_transitions[current_status]:
+
+            return Response(
+                {
+                    'error':
+                    f'Cannot change admission status from '
+                    f'{current_status} to {new_status}.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # --------------------------------
+        # Discharge date validation
+        # --------------------------------
+
+        if new_status == Admission.Status.DISCHARGED:
+
+            if not request.data.get('discharge_date'):
+
+                return Response(
+                    {
+                        'error':
+                        'Discharge date is required when discharging a patient.'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        # --------------------------------
+        # Prevent discharge date otherwise
+        # --------------------------------
+
+        if (
+            'discharge_date' in request.data
+            and new_status != Admission.Status.DISCHARGED
+        ):
+
+            return Response(
+                {
+                    'error':
+                    'Discharge date can only be set when admission is DISCHARGED.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # --------------------------------
+        # Update
+        # --------------------------------
+
+        serializer = AdmissionSerializer(
+            admission,
+            data=request.data,
+            partial=(request.method == 'PATCH')
+        )
+
+        if serializer.is_valid():
+
+            old_status = admission.status
+
+            admission = serializer.save()
+
+
+            if (
+                admission.status in [
+                    Admission.Status.DISCHARGED,
+                    Admission.Status.CANCELLED
+                ]
+                and admission.bed
+            ):
+
+                bed = admission.bed
+
+                if bed.status == Bed.Status.OCCUPIED:
+
+                    bed.status = Bed.Status.AVAILABLE
+                    bed.save()
+
+            create_audit_log(
+                user=request.user,
+                action=AuditLog.Action.UPDATE,
+                module='admissions',
+                description=(
+                    f'Updated admission #{admission.id} '
+                    f'from {old_status} to {admission.status}.'
+                ),
+                ip_address=request.META.get('REMOTE_ADDR')
+            )
+
+            return Response(
+                AdmissionSerializer(admission).data,
+                status=status.HTTP_200_OK
+            )
+
+        return Response(
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def room_list_create(request):
+
+    # --------------------------------
+    # GET
+    # --------------------------------
+
+    if request.method == 'GET':
+
+        rooms = Room.objects.select_related(
+            'department'
+        ).prefetch_related(
+            'beds'
+        ).all()
+
+        serializer = RoomSerializer(
+            rooms,
+            many=True
+        )
+
+        return Response(
+            serializer.data,
+            status=status.HTTP_200_OK
+        )
+
+    # --------------------------------
+    # POST
+    # --------------------------------
+
+    if request.method == 'POST':
+
+        # Only Admin and Receptionist can create rooms
+        if request.user.role not in [
+            User.Role.ADMIN,
+            User.Role.RECEPTIONIST
+        ]:
+
+            return Response(
+                {
+                    'error':
+                    'You do not have permission to create rooms.'
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        department_id = request.data.get(
+            'department'
+        )
+
+        room_number = request.data.get(
+            'room_number'
+        )
+
+        room_type = request.data.get(
+            'room_type'
+        )
+
+        if not department_id:
+
+            return Response(
+                {
+                    'error':
+                    'Department is required.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not room_number:
+
+            return Response(
+                {
+                    'error':
+                    'Room number is required.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not room_type:
+
+            return Response(
+                {
+                    'error':
+                    'Room type is required.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # --------------------------------
+        # Validate department
+        # --------------------------------
+
+        try:
+
+            department = Department.objects.get(
+                id=department_id
+            )
+
+        except Department.DoesNotExist:
+
+            return Response(
+                {
+                    'error':
+                    'Department not found.'
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # --------------------------------
+        # Prevent duplicate room number
+        # --------------------------------
+
+        if Room.objects.filter(
+            room_number=room_number
+        ).exists():
+
+            return Response(
+                {
+                    'error':
+                    'A room with this room number already exists.'
+                },
+                status=status.HTTP_409_CONFLICT
+            )
+
+        # --------------------------------
+        # Create room
+        # --------------------------------
+
+        data = {
+            'room_number': room_number,
+            'room_type': room_type,
+            'department': department.id,
+            'status': request.data.get(
+                'status',
+                Room.Status.ACTIVE
+            )
+        }
+
+        serializer = RoomSerializer(
+            data=data
+        )
+
+        if serializer.is_valid():
+
+            room = serializer.save()
+
+            return Response(
+                RoomSerializer(room).data,
+                status=status.HTTP_201_CREATED
+            )
+
+        return Response(
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+@api_view(['GET', 'PUT', 'PATCH'])
+@permission_classes([IsAuthenticated])
+def room_detail(request, pk):
+
+    try:
+        room = Room.objects.select_related(
+            'department'
+        ).prefetch_related(
+            'beds'
+        ).get(pk=pk)
+
+    except Room.DoesNotExist:
+        return Response(
+            {
+                'error': 'Room not found.'
+            },
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    # --------------------------------
+    # GET
+    # --------------------------------
+
+    if request.method == 'GET':
+
+        serializer = RoomSerializer(room)
+
+        return Response(
+            serializer.data,
+            status=status.HTTP_200_OK
+        )
+
+    # --------------------------------
+    # PUT / PATCH
+    # --------------------------------
+
+    if request.user.role not in [
+        User.Role.ADMIN,
+        User.Role.RECEPTIONIST
+    ]:
+        return Response(
+            {
+                'error':
+                'You do not have permission to update rooms.'
+            },
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    # --------------------------------
+    # Protected fields
+    # --------------------------------
+
+    protected_fields = [
+        'room_number',
+        'department'
+    ]
+
+    for field in protected_fields:
+
+        if field in request.data:
+            return Response(
+                {
+                    'error':
+                    f'{field} cannot be changed after room creation.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    serializer = RoomSerializer(
+        room,
+        data=request.data,
+        partial=(request.method == 'PATCH')
+    )
+
+    if serializer.is_valid():
+
+        room = serializer.save()
+
+        return Response(
+            RoomSerializer(room).data,
+            status=status.HTTP_200_OK
+        )
+
+    return Response(
+        serializer.errors,
+        status=status.HTTP_400_BAD_REQUEST
+    )
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def bed_list_create(request):
+
+    # --------------------------------
+    # GET
+    # --------------------------------
+
+    if request.method == 'GET':
+
+        beds = Bed.objects.select_related(
+            'room__department'
+        ).all()
+
+        serializer = BedSerializer(
+            beds,
+            many=True
+        )
+
+        return Response(
+            serializer.data,
+            status=status.HTTP_200_OK
+        )
+
+    # --------------------------------
+    # POST
+    # --------------------------------
+
+    if request.method == 'POST':
+
+        # Only Admin and Receptionist can create beds
+        if request.user.role not in [
+            User.Role.ADMIN,
+            User.Role.RECEPTIONIST
+        ]:
+
+            return Response(
+                {
+                    'error':
+                    'You do not have permission to create beds.'
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        room_id = request.data.get('room')
+
+        bed_number = request.data.get('bed_number')
+
+        if not room_id:
+
+            return Response(
+                {
+                    'error':
+                    'Room is required.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not bed_number:
+
+            return Response(
+                {
+                    'error':
+                    'Bed number is required.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # --------------------------------
+        # Validate room
+        # --------------------------------
+
+        try:
+
+            room = Room.objects.select_related(
+                'department'
+            ).get(
+                id=room_id
+            )
+
+        except Room.DoesNotExist:
+
+            return Response(
+                {
+                    'error':
+                    'Room not found.'
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # --------------------------------
+        # Room must be active
+        # --------------------------------
+
+        if room.status != Room.Status.ACTIVE:
+
+            return Response(
+                {
+                    'error':
+                    'Cannot add a bed to an inactive room.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # --------------------------------
+        # Prevent duplicate bed number
+        # --------------------------------
+
+        if Bed.objects.filter(
+            room=room,
+            bed_number=bed_number
+        ).exists():
+
+            return Response(
+                {
+                    'error':
+                    'A bed with this number already exists in this room.'
+                },
+                status=status.HTTP_409_CONFLICT
+            )
+
+        # --------------------------------
+        # Create bed
+        # --------------------------------
+
+        data = {
+            'room': room.id,
+            'bed_number': bed_number,
+            'status': request.data.get(
+                'status',
+                Bed.Status.AVAILABLE
+            )
+        }
+
+        serializer = BedSerializer(
+            data=data
+        )
+
+        if serializer.is_valid():
+
+            bed = serializer.save()
+
+            return Response(
+                BedSerializer(bed).data,
+                status=status.HTTP_201_CREATED
+            )
+
+        return Response(
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+
+@api_view(['GET', 'PUT', 'PATCH'])
+@permission_classes([IsAuthenticated])
+def bed_detail(request, pk):
+
+    try:
+        bed = Bed.objects.select_related(
+            'room__department'
+        ).get(pk=pk)
+
+    except Bed.DoesNotExist:
+        return Response(
+            {
+                'error': 'Bed not found.'
+            },
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    # --------------------------------
+    # GET
+    # --------------------------------
+
+    if request.method == 'GET':
+
+        serializer = BedSerializer(bed)
+
+        return Response(
+            serializer.data,
+            status=status.HTTP_200_OK
+        )
+
+    # --------------------------------
+    # UPDATE PERMISSION
+    # --------------------------------
+
+    # Only Admin and Receptionist can update beds
+    if request.user.role not in [
+        User.Role.ADMIN,
+        User.Role.RECEPTIONIST
+    ]:
+
+        return Response(
+            {
+                'error':
+                'You do not have permission to update beds.'
+            },
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    # --------------------------------
+    # Protected fields
+    # --------------------------------
+
+    protected_fields = [
+        'room',
+        'bed_number'
+    ]
+
+    for field in protected_fields:
+
+        if field in request.data:
+
+            return Response(
+                {
+                    'error':
+                    f'{field} cannot be changed after bed creation.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    # --------------------------------
+    # Status validation
+    # --------------------------------
+
+    new_status = request.data.get(
+        'status',
+        bed.status
+    )
+
+    valid_statuses = [
+        Bed.Status.AVAILABLE,
+        Bed.Status.OCCUPIED,
+        Bed.Status.MAINTENANCE
+    ]
+
+    if new_status not in valid_statuses:
+
+        return Response(
+            {
+                'error':
+                'Invalid bed status.'
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # --------------------------------
+    # Prevent manual release of occupied bed
+    # --------------------------------
+
+    if (
+        bed.status == Bed.Status.OCCUPIED
+        and new_status == Bed.Status.AVAILABLE
+    ):
+
+        return Response(
+            {
+                'error':
+                'Occupied bed can only be released when the admission is discharged or cancelled.'
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # --------------------------------
+    # Update
+    # --------------------------------
+
+    serializer = BedSerializer(
+        bed,
+        data=request.data,
+        partial=(request.method == 'PATCH')
+    )
+
+    if serializer.is_valid():
+
+        bed = serializer.save()
+
+        return Response(
+            BedSerializer(bed).data,
+            status=status.HTTP_200_OK
+        )
+
+    return Response(
+        serializer.errors,
+        status=status.HTTP_400_BAD_REQUEST
+    )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def audit_log_list(request):
+
+    # Only Admin can view audit logs
+    if request.user.role != User.Role.ADMIN:
+
+        return Response(
+            {
+                'error':
+                'Only Admin can access audit logs.'
+            },
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    logs = AuditLog.objects.select_related(
+        'user'
+    ).all().order_by(
+        '-created_at'
+    )
+
+    serializer = AuditLogSerializer(
+        logs,
+        many=True
+    )
+
+    return Response(
+        serializer.data,
         status=status.HTTP_200_OK
     )
