@@ -8,10 +8,12 @@ __pycache__/
 
 # Django
 *.log
+staticfiles/
 
 # Environment variables / secrets
 .env
 .env.*
+hospital_management_backup.sql
 
 # Local database
 db.sqlite3
