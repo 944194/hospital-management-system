@@ -8,3 +8,4 @@ mysqlclient==2.2.8
 PyJWT==2.13.0
 sqlparse==0.6.0
 tzdata==2026.3
+python-dotenv==1.2.3
