@@ -1,7 +1,9 @@
 import { NavLink, Outlet } from "react-router-dom";
+import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 
 function MainLayout() {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, logout } = useAuth();
 
   const isAdmin = user?.role === "ADMIN";
@@ -12,7 +14,7 @@ function MainLayout() {
   return (
     <div className="app-layout">
       {/* Sidebar */}
-      <aside className="sidebar">
+      <aside className={`sidebar ${sidebarOpen ? "sidebar-open" : ""}`}>
         <div className="sidebar-header">
           <h2>🏥 HMS</h2>
           <p>Hospital Management</p>
@@ -212,6 +214,12 @@ function MainLayout() {
 
         {/* Top bar */}
         <header className="topbar">
+          <button
+  className="mobile-menu-btn"
+  onClick={() => setSidebarOpen(!sidebarOpen)}
+>
+  ☰
+</button>
           <div>
             <h1>Hospital Management System</h1>
           </div>
