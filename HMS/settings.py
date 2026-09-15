@@ -179,4 +179,5 @@ REST_FRAMEWORK = {
 
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:5173',
+    "https://hospital-management-system-1-b901.onrender.com",
 ]
