@@ -16747,3 +16747,24 @@
     margin-right: 12px;
   }
 }
+
+
+
+.mobile-close-btn {
+  display: none;
+}
+
+@media (max-width: 600px) {
+  .mobile-close-btn {
+    display: block;
+    position: absolute;
+    top: 18px;
+    right: 18px;
+    background: none;
+    border: none;
+    color: white;
+    font-size: 28px;
+    cursor: pointer;
+    z-index: 2100;
+  }
+}

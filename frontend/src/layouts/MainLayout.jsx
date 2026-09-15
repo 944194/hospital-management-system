@@ -15,6 +15,12 @@ function MainLayout() {
     <div className="app-layout">
       {/* Sidebar */}
       <aside className={`sidebar ${sidebarOpen ? "sidebar-open" : ""}`}>
+        <button
+  className="mobile-close-btn"
+  onClick={() => setSidebarOpen(false)}
+>
+  ✕
+</button>
         <div className="sidebar-header">
           <h2>🏥 HMS</h2>
           <p>Hospital Management</p>
