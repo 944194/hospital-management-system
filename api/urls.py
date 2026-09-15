@@ -3,6 +3,7 @@ from django.urls import path
 from .views import (
     register,
     profile,
+    patient_profile_update,
     department_list_create,
     department_detail,
     doctor_list_create,
@@ -10,6 +11,7 @@ from .views import (
     patient_list_create,
     patient_detail,
     appointment_list_create,
+    appointment_available_slots,
     appointment_detail,
     medical_record_list_create,
     medical_record_detail,
@@ -31,6 +33,12 @@ from .views import (
     bed_list_create,
     bed_detail,
     audit_log_list,
+    admin_user_detail,
+    admin_user_list,
+    receptionist_list_create,
+    receptionist_update,
+    receptionist_delete,
+    patient_search,
 )
 
 from rest_framework_simplejwt.views import (
@@ -64,6 +72,12 @@ urlpatterns = [
         'auth/profile/',
         profile,
         name='profile'
+    ),
+
+    path(
+        'auth/profile/update/',
+        patient_profile_update,
+        name='patient_profile_update'
     ),
 
     # Departments
@@ -111,6 +125,12 @@ urlpatterns = [
     ),
 
     path(
+        'patients/search/',
+        patient_search,
+        name='patient_search'
+    ),
+
+    path(
         'patients/<int:pk>/',
         patient_detail,
         name='patient_detail'
@@ -144,6 +164,12 @@ urlpatterns = [
     'prescriptions/',
     prescription_list_create,
     name='prescription_list_create'
+    ),
+
+    path(
+    'appointments/available-slots/',
+    appointment_available_slots,
+    name='appointment_available_slots'
     ),
 
     path(
@@ -237,6 +263,35 @@ urlpatterns = [
     'audit-logs/',
     audit_log_list,
     name='audit_log_list'
-),
+    ),
+
+    path(
+   'admin/users/<int:pk>/',
+    admin_user_detail,
+    name='admin_user_detail'
+    ),
+
+    path('admin/users/',
+    admin_user_list,
+    name='admin_user_list'
+    ),
+
+    path(
+    'admin/receptionists/',
+    receptionist_list_create,
+    name='receptionist_list_create'
+    ),
+
+    path(
+    'admin/receptionists/<int:pk>/',
+    receptionist_update,
+    name='receptionist_update'
+    ),
+
+    path(
+    'admin/receptionists/<int:pk>/delete/',
+    receptionist_delete,
+    name='receptionist_delete'
+    ),
 
 ]

@@ -27,6 +27,14 @@ class Appointment(models.Model):
         related_name='appointments'
     )
 
+    appointment_room = models.ForeignKey(
+        'rooms.Room',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='appointments'
+    )
+
     appointment_date = models.DateField()
 
     appointment_time = models.TimeField()

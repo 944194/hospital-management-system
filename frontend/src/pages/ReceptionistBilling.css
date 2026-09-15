@@ -1,0 +1,753 @@
+/* ==========================================
+   RECEPTIONIST BILLING PAGE
+   ========================================== */
+
+.receptionist-billing-page {
+  min-height: 100vh;
+  padding: 28px;
+  background: #f5f3ff;
+  color: #1f2937;
+}
+
+
+/* ==========================================
+   HEADER
+   ========================================== */
+
+.receptionist-billing-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 24px;
+  margin-bottom: 22px;
+}
+
+.receptionist-billing-eyebrow,
+.receptionist-billing-section-eyebrow {
+  display: block;
+  margin-bottom: 6px;
+  color: #7c3aed;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.3px;
+  text-transform: uppercase;
+}
+
+.receptionist-billing-header h1 {
+  margin: 0;
+  color: #312e81;
+  font-size: 30px;
+  font-weight: 800;
+}
+
+.receptionist-billing-header p {
+  margin: 7px 0 0;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+
+/* ==========================================
+   PRIMARY BUTTON
+   ========================================== */
+
+.receptionist-billing-primary-btn {
+  border: none;
+  border-radius: 10px;
+  padding: 11px 18px;
+  background: linear-gradient(
+    135deg,
+    #7c3aed,
+    #6366f1
+  );
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 5px 14px rgba(99, 102, 241, 0.22);
+  transition: 0.2s ease;
+}
+
+.receptionist-billing-primary-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 7px 18px rgba(99, 102, 241, 0.28);
+}
+
+
+/* ==========================================
+   TOOLBAR
+   ========================================== */
+
+.receptionist-billing-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.receptionist-billing-summary {
+  min-width: 145px;
+  padding: 13px 17px;
+  border: 1px solid #ddd6fe;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.receptionist-billing-summary span {
+  display: block;
+  margin-bottom: 3px;
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.receptionist-billing-summary strong {
+  color: #4c1d95;
+  font-size: 20px;
+}
+
+.receptionist-billing-search {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  max-width: 520px;
+  height: 46px;
+  padding: 0 13px;
+  border: 1px solid #ddd6fe;
+  border-radius: 11px;
+  background: #ffffff;
+}
+
+.receptionist-billing-search > span {
+  margin-right: 9px;
+  color: #7c3aed;
+  font-size: 21px;
+}
+
+.receptionist-billing-search input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #1f2937;
+  font-size: 13px;
+}
+
+.receptionist-billing-search input::placeholder {
+  color: #9ca3af;
+}
+
+.receptionist-billing-search button {
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+
+/* ==========================================
+   MESSAGES
+   ========================================== */
+
+.receptionist-billing-success,
+.receptionist-billing-error {
+  margin-bottom: 18px;
+  padding: 12px 15px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.receptionist-billing-success {
+  border: 1px solid #bbf7d0;
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.receptionist-billing-error {
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+
+/* ==========================================
+   FORM CARD
+   ========================================== */
+
+.receptionist-billing-form-card {
+  margin-bottom: 24px;
+  padding: 22px;
+  border: 1px solid #ddd6fe;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 7px 22px rgba(76, 29, 149, 0.06);
+}
+
+.receptionist-billing-form-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #ede9fe;
+}
+
+.receptionist-billing-form-header h2 {
+  margin: 0;
+  color: #312e81;
+  font-size: 20px;
+}
+
+.receptionist-billing-close-btn {
+  width: 34px;
+  height: 34px;
+  border: 1px solid #ddd6fe;
+  border-radius: 8px;
+  background: #faf5ff;
+  color: #6d28d9;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.receptionist-billing-close-btn:hover {
+  background: #ede9fe;
+}
+
+
+/* ==========================================
+   FORM GRID
+   ========================================== */
+
+.receptionist-billing-form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 17px;
+}
+
+.receptionist-billing-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.receptionist-billing-form-group.full {
+  grid-column: 1 / -1;
+}
+
+.receptionist-billing-form-group label {
+  color: #374151;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.receptionist-billing-form-group input,
+.receptionist-billing-form-group select,
+.receptionist-billing-form-group textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #d1d5db;
+  border-radius: 9px;
+  padding: 10px 11px;
+  outline: none;
+  background: #ffffff;
+  color: #1f2937;
+  font-family: inherit;
+  font-size: 13px;
+  transition: 0.2s ease;
+}
+
+.receptionist-billing-form-group input,
+.receptionist-billing-form-group select {
+  height: 42px;
+}
+
+.receptionist-billing-form-group textarea {
+  resize: vertical;
+  min-height: 82px;
+}
+
+.receptionist-billing-form-group input:focus,
+.receptionist-billing-form-group select:focus,
+.receptionist-billing-form-group textarea:focus {
+  border-color: #8b5cf6;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+}
+
+.receptionist-billing-form-group input[readonly] {
+  background: #f9fafb;
+  color: #4c1d95;
+  font-weight: 700;
+}
+
+
+/* ==========================================
+   FORM ACTIONS
+   ========================================== */
+
+.receptionist-billing-form-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 21px;
+  padding-top: 18px;
+  border-top: 1px solid #ede9fe;
+}
+
+.receptionist-billing-save-btn,
+.receptionist-billing-cancel-btn {
+  border: none;
+  border-radius: 9px;
+  padding: 10px 17px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.receptionist-billing-save-btn {
+  background: linear-gradient(
+    135deg,
+    #7c3aed,
+    #6366f1
+  );
+  color: #ffffff;
+}
+
+.receptionist-billing-cancel-btn {
+  border: 1px solid #ddd6fe;
+  background: #ffffff;
+  color: #5b21b6;
+}
+
+.receptionist-billing-save-btn:hover {
+  opacity: 0.93;
+}
+
+.receptionist-billing-cancel-btn:hover {
+  background: #faf5ff;
+}
+
+
+/* ==========================================
+   TABLE SECTION
+   ========================================== */
+
+.receptionist-billing-table-section {
+  overflow: hidden;
+  border: 1px solid #ddd6fe;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 7px 22px rgba(76, 29, 149, 0.06);
+}
+
+.receptionist-billing-table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+  padding: 18px 20px;
+  border-bottom: 1px solid #ede9fe;
+}
+
+.receptionist-billing-table-header h2 {
+  margin: 0;
+  color: #312e81;
+  font-size: 19px;
+}
+
+.receptionist-billing-table-count {
+  padding: 6px 10px;
+  border-radius: 20px;
+  background: #f3e8ff;
+  color: #6d28d9;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+
+/* ==========================================
+   TABLE
+   ========================================== */
+
+.receptionist-billing-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.receptionist-billing-table {
+  width: 100%;
+  min-width: 1450px;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.receptionist-billing-table th {
+  padding: 11px 12px;
+  border-bottom: 1px solid #ddd6fe;
+  background: #faf5ff;
+  color: #4c1d95;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.45px;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.receptionist-billing-table td {
+  padding: 12px;
+  border-bottom: 1px solid #f0eef8;
+  color: #4b5563;
+  vertical-align: middle;
+}
+
+.receptionist-billing-table tbody tr:hover {
+  background: #fcfaff;
+}
+
+.receptionist-billing-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+
+/* ==========================================
+   BILL ID
+   ========================================== */
+
+.receptionist-billing-bill-id {
+  display: inline-block;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: #f3e8ff;
+  color: #6d28d9;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+
+/* ==========================================
+   PERSON
+   ========================================== */
+
+.receptionist-billing-person {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 145px;
+}
+
+.receptionist-billing-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 31px;
+  height: 31px;
+  border-radius: 50%;
+  background: linear-gradient(
+    135deg,
+    #ddd6fe,
+    #c4b5fd
+  );
+  color: #4c1d95;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.receptionist-billing-avatar.doctor {
+  background: linear-gradient(
+    135deg,
+    #e0e7ff,
+    #c7d2fe
+  );
+  color: #3730a3;
+}
+
+.receptionist-billing-person div:last-child {
+  min-width: 0;
+}
+
+.receptionist-billing-person strong {
+  display: block;
+  max-width: 125px;
+  overflow: hidden;
+  color: #374151;
+  font-size: 12px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.receptionist-billing-person span {
+  display: block;
+  margin-top: 2px;
+  color: #8b5cf6;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+
+/* ==========================================
+   APPOINTMENT
+   ========================================== */
+
+.receptionist-billing-appointment strong {
+  display: block;
+  color: #374151;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.receptionist-billing-appointment span {
+  display: block;
+  margin-top: 3px;
+  color: #6b7280;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+
+/* ==========================================
+   TOTAL
+   ========================================== */
+
+.receptionist-billing-total {
+  color: #4c1d95;
+  white-space: nowrap;
+}
+
+
+/* ==========================================
+   PAYMENT STATUS
+   ========================================== */
+
+.receptionist-billing-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 8px;
+  border-radius: 20px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+.receptionist-billing-status.pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.receptionist-billing-status.partially-paid {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.receptionist-billing-status.paid {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.receptionist-billing-status.cancelled {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+
+/* ==========================================
+   NOTES
+   ========================================== */
+
+.receptionist-billing-notes {
+  display: block;
+  max-width: 150px;
+  overflow: hidden;
+  color: #6b7280;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+
+/* ==========================================
+   EDIT BUTTON
+   ========================================== */
+
+.receptionist-billing-edit-btn {
+  border: 1px solid #c4b5fd;
+  border-radius: 7px;
+  padding: 6px 10px;
+  background: #faf5ff;
+  color: #6d28d9;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.receptionist-billing-edit-btn:hover {
+  background: #ede9fe;
+}
+
+
+/* ==========================================
+   EMPTY STATE
+   ========================================== */
+
+.receptionist-billing-empty {
+  padding: 60px 20px;
+  text-align: center;
+}
+
+.receptionist-billing-empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 55px;
+  height: 55px;
+  margin: 0 auto 13px;
+  border-radius: 50%;
+  background: #f3e8ff;
+  color: #7c3aed;
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.receptionist-billing-empty h3 {
+  margin: 0;
+  color: #374151;
+  font-size: 16px;
+}
+
+.receptionist-billing-empty p {
+  margin: 7px 0 15px;
+  color: #9ca3af;
+  font-size: 12px;
+}
+
+.receptionist-billing-clear-btn {
+  border: 1px solid #c4b5fd;
+  border-radius: 8px;
+  padding: 8px 13px;
+  background: #faf5ff;
+  color: #6d28d9;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+
+/* ==========================================
+   LOADING
+   ========================================== */
+
+.receptionist-billing-state {
+  min-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #6b7280;
+}
+
+.receptionist-billing-state p {
+  margin-top: 12px;
+  font-size: 13px;
+}
+
+.receptionist-billing-spinner {
+  width: 30px;
+  height: 30px;
+  border: 3px solid #ddd6fe;
+  border-top-color: #7c3aed;
+  border-radius: 50%;
+  animation: receptionistBillingSpin 0.8s linear infinite;
+}
+
+@keyframes receptionistBillingSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+
+/* ==========================================
+   RESPONSIVE
+   ========================================== */
+
+@media (max-width: 1000px) {
+  .receptionist-billing-page {
+    padding: 20px;
+  }
+
+  .receptionist-billing-form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .receptionist-billing-page {
+    padding: 15px;
+  }
+
+  .receptionist-billing-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .receptionist-billing-header h1 {
+    font-size: 25px;
+  }
+
+  .receptionist-billing-primary-btn {
+    width: 100%;
+  }
+
+  .receptionist-billing-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .receptionist-billing-summary {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .receptionist-billing-search {
+    max-width: none;
+  }
+
+  .receptionist-billing-form-card {
+    padding: 17px;
+  }
+
+  .receptionist-billing-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .receptionist-billing-form-group.full {
+    grid-column: auto;
+  }
+
+  .receptionist-billing-table-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 450px) {
+  .receptionist-billing-page {
+    padding: 11px;
+  }
+
+  .receptionist-billing-form-actions {
+    flex-direction: column;
+  }
+
+  .receptionist-billing-save-btn,
+  .receptionist-billing-cancel-btn {
+    width: 100%;
+  }
+}

@@ -13,6 +13,7 @@ class Room(models.Model):
         SEMI_PRIVATE = 'SEMI_PRIVATE', 'Semi Private'
         PRIVATE = 'PRIVATE', 'Private'
         ICU = 'ICU', 'ICU'
+        CONSULTATION = 'CONSULTATION', 'Consultation'
 
     class Status(models.TextChoices):
         ACTIVE = 'ACTIVE', 'Active'

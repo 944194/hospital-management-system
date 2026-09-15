@@ -17,9 +17,7 @@ class User(AbstractUser):
         blank=True
     )
     mobile_number = models.CharField(
-        max_length=15,
-        null=True,
-        blank=True
+        max_length=15
     )
     aadhaar_number = models.CharField(
         max_length=12,
@@ -33,6 +31,6 @@ class User(AbstractUser):
         default=Role.PATIENT
     )
     updated_at = models.DateTimeField(auto_now=True)
-
+    
     def __str__(self):
         return self.username

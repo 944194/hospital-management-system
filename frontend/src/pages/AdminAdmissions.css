@@ -1,0 +1,1028 @@
+/* =========================================================
+   ADMIN ADMISSIONS
+   ========================================================= */
+
+.admin-admissions-page {
+  min-height: 100vh;
+  padding: 28px;
+  background: #f5f3ff;
+  color: #1f2937;
+  box-sizing: border-box;
+}
+
+/* =========================================================
+   HEADER
+   ========================================================= */
+
+.admin-admissions-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.admin-admissions-eyebrow {
+  margin: 0 0 6px;
+  color: #7c3aed;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+}
+
+.admin-admissions-header h1 {
+  margin: 0;
+  color: #312e81;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+}
+
+.admin-admissions-header p:not(.admin-admissions-eyebrow) {
+  margin: 7px 0 0;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.admin-admissions-primary-btn {
+  border: none;
+  border-radius: 10px;
+  padding: 12px 18px;
+  background: linear-gradient(
+    135deg,
+    #7c3aed,
+    #6366f1
+  );
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 8px 18px rgba(99, 102, 241, 0.2);
+  transition: 0.2s ease;
+  white-space: nowrap;
+}
+
+.admin-admissions-primary-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 11px 22px rgba(99, 102, 241, 0.26);
+}
+
+/* =========================================================
+   MESSAGES
+   ========================================================= */
+
+.admin-admissions-success,
+.admin-admissions-error,
+.admin-admissions-form-error {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+  padding: 12px 15px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.admin-admissions-success {
+  border: 1px solid #bbf7d0;
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.admin-admissions-success span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #dcfce7;
+}
+
+.admin-admissions-error,
+.admin-admissions-form-error {
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.admin-admissions-error span,
+.admin-admissions-form-error span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fee2e2;
+  font-weight: 800;
+}
+
+/* =========================================================
+   SUMMARY
+   ========================================================= */
+
+.admin-admissions-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+.admin-admissions-summary-card {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  min-width: 0;
+  padding: 17px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  box-shadow: 0 5px 18px rgba(76, 29, 149, 0.05);
+}
+
+.admin-admissions-summary-icon {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 43px;
+  height: 43px;
+  border-radius: 11px;
+  background: linear-gradient(
+    135deg,
+    #ede9fe,
+    #e0e7ff
+  );
+  color: #6d28d9;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.admin-admissions-summary-card div:last-child {
+  min-width: 0;
+}
+
+.admin-admissions-summary-card span {
+  display: block;
+  margin-bottom: 3px;
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.admin-admissions-summary-card strong {
+  display: block;
+  color: #312e81;
+  font-size: 23px;
+  line-height: 1.1;
+}
+
+.admin-admissions-summary-card small {
+  display: block;
+  margin-top: 3px;
+  color: #9ca3af;
+  font-size: 10px;
+}
+
+/* =========================================================
+   FORM CARD
+   ========================================================= */
+
+.admin-admissions-form-card {
+  margin-bottom: 22px;
+  padding: 24px;
+  background: #fff;
+  border: 1px solid #ddd6fe;
+  border-radius: 16px;
+  box-shadow: 0 8px 25px rgba(76, 29, 149, 0.07);
+}
+
+.admin-admissions-form-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding-bottom: 19px;
+  margin-bottom: 21px;
+  border-bottom: 1px solid #ede9fe;
+}
+
+.admin-admissions-form-header p {
+  margin: 0 0 5px;
+  color: #7c3aed;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+}
+
+.admin-admissions-form-header h2 {
+  margin: 0;
+  color: #312e81;
+  font-size: 20px;
+}
+
+.admin-admissions-form-header span {
+  display: block;
+  margin-top: 5px;
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.admin-admissions-close-btn {
+  width: 34px;
+  height: 34px;
+  border: 1px solid #e5e7eb;
+  border-radius: 9px;
+  background: #fff;
+  color: #6b7280;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.admin-admissions-close-btn:hover {
+  border-color: #c4b5fd;
+  background: #f5f3ff;
+  color: #6d28d9;
+}
+
+.admin-admissions-form-section-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  margin: 20px 0 14px;
+}
+
+.admin-admissions-form-section-title > span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 29px;
+  height: 29px;
+  border-radius: 8px;
+  background: #ede9fe;
+  color: #6d28d9;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.admin-admissions-form-section-title h3 {
+  margin: 0;
+  color: #312e81;
+  font-size: 14px;
+}
+
+.admin-admissions-form-section-title p {
+  margin: 3px 0 0;
+  color: #9ca3af;
+  font-size: 11px;
+}
+
+.admin-admissions-form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 15px;
+}
+
+.admin-admissions-form-group {
+  min-width: 0;
+}
+
+.admin-admissions-form-group label {
+  display: block;
+  margin-bottom: 6px;
+  color: #374151;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.admin-admissions-form-group input,
+.admin-admissions-form-group select,
+.admin-admissions-form-group textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #d1d5db;
+  border-radius: 9px;
+  outline: none;
+  background: #fff;
+  color: #1f2937;
+  font-family: inherit;
+  font-size: 12px;
+  transition: 0.2s ease;
+}
+
+.admin-admissions-form-group input,
+.admin-admissions-form-group select {
+  height: 40px;
+  padding: 0 11px;
+}
+
+.admin-admissions-form-group textarea {
+  min-height: 95px;
+  padding: 10px 11px;
+  resize: vertical;
+}
+
+.admin-admissions-form-group input:focus,
+.admin-admissions-form-group select:focus,
+.admin-admissions-form-group textarea:focus {
+  border-color: #8b5cf6;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.09);
+}
+
+.admin-admissions-form-group input:disabled,
+.admin-admissions-form-group select:disabled {
+  background: #f9fafb;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.admin-admissions-textarea-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 15px;
+}
+
+.admin-admissions-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid #f3f4f6;
+}
+
+.admin-admissions-cancel-btn,
+.admin-admissions-save-btn {
+  border-radius: 9px;
+  padding: 10px 17px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.admin-admissions-cancel-btn {
+  border: 1px solid #d1d5db;
+  background: #fff;
+  color: #4b5563;
+}
+
+.admin-admissions-cancel-btn:hover {
+  background: #f9fafb;
+}
+
+.admin-admissions-save-btn {
+  border: none;
+  background: linear-gradient(
+    135deg,
+    #7c3aed,
+    #6366f1
+  );
+  color: #fff;
+  box-shadow: 0 7px 16px rgba(99, 102, 241, 0.18);
+}
+
+.admin-admissions-save-btn:hover {
+  transform: translateY(-1px);
+}
+
+/* =========================================================
+   PATIENT BANNER
+   ========================================================= */
+
+.admin-admissions-patient-banner {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  margin-bottom: 21px;
+  padding: 14px;
+  border: 1px solid #e9d5ff;
+  border-radius: 12px;
+  background: #faf5ff;
+}
+
+.admin-admissions-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 43px;
+  height: 43px;
+  border-radius: 11px;
+  background: linear-gradient(
+    135deg,
+    #7c3aed,
+    #6366f1
+  );
+  color: #fff;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.admin-admissions-avatar.small {
+  width: 35px;
+  height: 35px;
+  border-radius: 9px;
+  font-size: 12px;
+}
+
+.admin-admissions-patient-banner > div:nth-child(2) {
+  min-width: 150px;
+}
+
+.admin-admissions-patient-banner span,
+.admin-admissions-banner-info span {
+  display: block;
+  color: #8b5cf6;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+}
+
+.admin-admissions-patient-banner strong,
+.admin-admissions-banner-info strong {
+  display: block;
+  margin-top: 2px;
+  color: #312e81;
+  font-size: 12px;
+}
+
+.admin-admissions-patient-banner small {
+  display: block;
+  margin-top: 2px;
+  color: #6b7280;
+  font-size: 10px;
+}
+
+.admin-admissions-banner-info {
+  padding-left: 20px;
+  margin-left: auto;
+  border-left: 1px solid #e9d5ff;
+}
+
+/* =========================================================
+   FILTER CARD
+   ========================================================= */
+
+.admin-admissions-filter-card {
+  margin-bottom: 22px;
+  padding: 20px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  box-shadow: 0 5px 18px rgba(76, 29, 149, 0.04);
+}
+
+.admin-admissions-filter-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  margin-bottom: 17px;
+}
+
+.admin-admissions-filter-header p,
+.admin-admissions-table-header p {
+  margin: 0 0 4px;
+  color: #7c3aed;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1.1px;
+}
+
+.admin-admissions-filter-header h2,
+.admin-admissions-table-header h2 {
+  margin: 0;
+  color: #312e81;
+  font-size: 16px;
+}
+
+.admin-admissions-filter-header > span {
+  padding: 6px 10px;
+  border-radius: 20px;
+  background: #f5f3ff;
+  color: #6d28d9;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.admin-admissions-filter-grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 2fr) repeat(4, minmax(125px, 1fr));
+  gap: 12px;
+}
+
+.admin-admissions-filter-group {
+  min-width: 0;
+}
+
+.admin-admissions-filter-group label {
+  display: block;
+  margin-bottom: 5px;
+  color: #4b5563;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.admin-admissions-filter-group input,
+.admin-admissions-filter-group select {
+  width: 100%;
+  height: 38px;
+  box-sizing: border-box;
+  padding: 0 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  outline: none;
+  background: #fff;
+  color: #374151;
+  font-family: inherit;
+  font-size: 11px;
+}
+
+.admin-admissions-filter-group input:focus,
+.admin-admissions-filter-group select:focus {
+  border-color: #8b5cf6;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.08);
+}
+
+.admin-admissions-search-box {
+  position: relative;
+}
+
+.admin-admissions-search-box span {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  transform: translateY(-50%);
+  color: #8b5cf6;
+  font-size: 17px;
+  pointer-events: none;
+}
+
+.admin-admissions-search-box input {
+  padding-left: 31px;
+}
+
+.admin-admissions-filter-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  margin-top: 14px;
+  padding-top: 13px;
+  border-top: 1px solid #f3f4f6;
+}
+
+.admin-admissions-filter-footer span {
+  color: #6b7280;
+  font-size: 11px;
+}
+
+.admin-admissions-filter-footer strong {
+  color: #312e81;
+}
+
+.admin-admissions-filter-footer button,
+.admin-admissions-clear-btn {
+  border: 1px solid #ddd6fe;
+  border-radius: 8px;
+  padding: 8px 12px;
+  background: #faf5ff;
+  color: #6d28d9;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.admin-admissions-filter-footer button:hover,
+.admin-admissions-clear-btn:hover {
+  background: #ede9fe;
+}
+
+/* =========================================================
+   TABLE CARD
+   ========================================================= */
+
+.admin-admissions-table-card {
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 15px;
+  box-shadow: 0 6px 20px rgba(76, 29, 149, 0.05);
+}
+
+.admin-admissions-table-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px;
+  border-bottom: 1px solid #ede9fe;
+}
+
+.admin-admissions-table-count {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 28px;
+  padding: 0 9px;
+  border-radius: 20px;
+  background: #ede9fe;
+  color: #6d28d9;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+/* =========================================================
+   TABLE
+   ========================================================= */
+
+.admin-admissions-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.admin-admissions-table {
+  width: 100%;
+  min-width: 1450px;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.admin-admissions-table th {
+  padding: 11px 12px;
+  background: #fafafa;
+  border-bottom: 1px solid #e5e7eb;
+  color: #6b7280;
+  font-size: 9px;
+  font-weight: 800;
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: 0.45px;
+  white-space: nowrap;
+}
+
+.admin-admissions-table td {
+  padding: 12px;
+  border-bottom: 1px solid #f3f4f6;
+  color: #4b5563;
+  vertical-align: middle;
+}
+
+.admin-admissions-table tbody tr {
+  transition: 0.15s ease;
+}
+
+.admin-admissions-table tbody tr:hover {
+  background: #faf9ff;
+}
+
+.admin-admissions-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* =========================================================
+   TABLE CONTENT
+   ========================================================= */
+
+.admin-admissions-id strong {
+  display: block;
+  color: #6d28d9;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.admin-admissions-id small {
+  display: block;
+  margin-top: 3px;
+  color: #9ca3af;
+  font-size: 9px;
+}
+
+.admin-admissions-person {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 150px;
+}
+
+.admin-admissions-person > div:last-child {
+  min-width: 0;
+}
+
+.admin-admissions-person strong {
+  display: block;
+  max-width: 145px;
+  overflow: hidden;
+  color: #374151;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-admissions-person span {
+  display: block;
+  margin-top: 2px;
+  color: #8b5cf6;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.admin-admissions-doctor strong {
+  display: block;
+  max-width: 130px;
+  overflow: hidden;
+  color: #374151;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-admissions-doctor span {
+  display: block;
+  margin-top: 2px;
+  color: #9ca3af;
+  font-size: 9px;
+}
+
+.admin-admissions-department {
+  display: inline-block;
+  max-width: 120px;
+  padding: 5px 8px;
+  overflow: hidden;
+  border-radius: 6px;
+  background: #f5f3ff;
+  color: #6d28d9;
+  font-size: 9px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-admissions-location {
+  color: #374151;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.admin-admissions-date {
+  color: #4b5563;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.admin-admissions-reason,
+.admin-admissions-notes {
+  display: block;
+  max-width: 150px;
+  overflow: hidden;
+  color: #6b7280;
+  font-size: 10px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* =========================================================
+   STATUS
+   ========================================================= */
+
+.admin-admissions-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 8px;
+  border-radius: 20px;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+.admin-admissions-status.admitted {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.admin-admissions-status.treatment {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.admin-admissions-status.discharged {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+.admin-admissions-status.cancelled {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.admin-admissions-status.default {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+/* =========================================================
+   ACTION
+   ========================================================= */
+
+.admin-admissions-edit-btn {
+  border: 1px solid #ddd6fe;
+  border-radius: 7px;
+  padding: 6px 10px;
+  background: #faf5ff;
+  color: #6d28d9;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.2s ease;
+  white-space: nowrap;
+}
+
+.admin-admissions-edit-btn:hover {
+  border-color: #c4b5fd;
+  background: #ede9fe;
+  transform: translateY(-1px);
+}
+
+/* =========================================================
+   EMPTY / LOADING
+   ========================================================= */
+
+.admin-admissions-empty {
+  padding: 55px 20px;
+  text-align: center;
+}
+
+.admin-admissions-empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 54px;
+  height: 54px;
+  margin: 0 auto 13px;
+  border-radius: 14px;
+  background: #ede9fe;
+  color: #6d28d9;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.admin-admissions-empty h3 {
+  margin: 0;
+  color: #312e81;
+  font-size: 15px;
+}
+
+.admin-admissions-empty p {
+  margin: 6px 0 15px;
+  color: #9ca3af;
+  font-size: 11px;
+}
+
+.admin-admissions-state {
+  min-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 13px;
+  color: #6b7280;
+}
+
+.admin-admissions-state p {
+  margin: 0;
+  font-size: 13px;
+}
+
+.admin-admissions-spinner {
+  width: 30px;
+  height: 30px;
+  border: 3px solid #ddd6fe;
+  border-top-color: #7c3aed;
+  border-radius: 50%;
+  animation: adminAdmissionsSpin 0.8s linear infinite;
+}
+
+@keyframes adminAdmissionsSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 1200px) {
+  .admin-admissions-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-admissions-filter-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .admin-admissions-filter-group.search {
+    grid-column: span 3;
+  }
+
+  .admin-admissions-form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 800px) {
+  .admin-admissions-page {
+    padding: 18px;
+  }
+
+  .admin-admissions-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .admin-admissions-primary-btn {
+    width: 100%;
+  }
+
+  .admin-admissions-filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-admissions-filter-group.search {
+    grid-column: span 2;
+  }
+
+  .admin-admissions-form-grid,
+  .admin-admissions-textarea-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-admissions-patient-banner {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .admin-admissions-banner-info {
+    margin-left: 0;
+    padding-left: 0;
+    border-left: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .admin-admissions-page {
+    padding: 13px;
+  }
+
+  .admin-admissions-header h1 {
+    font-size: 25px;
+  }
+
+  .admin-admissions-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-admissions-form-card,
+  .admin-admissions-filter-card {
+    padding: 16px;
+  }
+
+  .admin-admissions-filter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-admissions-filter-group.search {
+    grid-column: span 1;
+  }
+
+  .admin-admissions-filter-footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .admin-admissions-filter-footer button {
+    width: 100%;
+  }
+
+  .admin-admissions-form-actions {
+    flex-direction: column-reverse;
+  }
+
+  .admin-admissions-cancel-btn,
+  .admin-admissions-save-btn {
+    width: 100%;
+  }
+}

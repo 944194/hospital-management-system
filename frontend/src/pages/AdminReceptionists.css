@@ -1,0 +1,973 @@
+/* =========================================
+   ADMIN RECEPTIONISTS
+   ========================================= */
+
+.admin-receptionists-page {
+  min-height: 100vh;
+  padding: 28px;
+  background: #f5f3ff;
+  color: #1e1b4b;
+}
+
+/* =========================================
+   HEADER
+   ========================================= */
+
+.admin-receptionists-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.admin-receptionists-eyebrow {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  color: #7c3aed;
+}
+
+.admin-receptionists-header h1 {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: #312e81;
+}
+
+.admin-receptionists-header p:last-child {
+  margin: 7px 0 0;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.admin-receptionists-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.admin-receptionists-count {
+  min-width: 105px;
+  padding: 10px 15px;
+  border: 1px solid #ddd6fe;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 3px 12px rgba(79, 70, 229, 0.06);
+}
+
+.admin-receptionists-count span,
+.admin-receptionists-count small {
+  display: block;
+  color: #6b7280;
+  font-size: 11px;
+}
+
+.admin-receptionists-count strong {
+  display: block;
+  margin: 2px 0;
+  font-size: 20px;
+  color: #4c1d95;
+}
+
+/* =========================================
+   BUTTONS
+   ========================================= */
+
+.admin-receptionists-primary-btn,
+.admin-receptionists-save-btn {
+  border: none;
+  border-radius: 10px;
+  padding: 11px 17px;
+  background: linear-gradient(
+    135deg,
+    #7c3aed,
+    #6366f1
+  );
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 5px 15px rgba(99, 102, 241, 0.22);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.admin-receptionists-primary-btn:hover,
+.admin-receptionists-save-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.28);
+}
+
+.admin-receptionists-primary-btn span {
+  margin-right: 6px;
+  font-size: 16px;
+}
+
+.admin-receptionists-cancel-btn,
+.admin-receptionists-clear-btn {
+  border: 1px solid #ddd6fe;
+  border-radius: 9px;
+  padding: 10px 16px;
+  background: #ffffff;
+  color: #5b21b6;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-receptionists-cancel-btn:hover,
+.admin-receptionists-clear-btn:hover {
+  background: #f5f3ff;
+}
+
+.admin-receptionists-close-btn {
+  width: 34px;
+  height: 34px;
+  border: 1px solid #ddd6fe;
+  border-radius: 9px;
+  background: #ffffff;
+  color: #6d28d9;
+  font-size: 21px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.admin-receptionists-close-btn:hover {
+  background: #f5f3ff;
+}
+
+/* =========================================
+   MESSAGES
+   ========================================= */
+
+.admin-receptionists-success,
+.admin-receptionists-error {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+  padding: 12px 15px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.admin-receptionists-success {
+  border: 1px solid #bbf7d0;
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.admin-receptionists-error {
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.admin-receptionists-success span,
+.admin-receptionists-error span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-weight: 800;
+}
+
+.admin-receptionists-success span {
+  background: #dcfce7;
+}
+
+.admin-receptionists-error span {
+  background: #fee2e2;
+}
+
+/* =========================================
+   SUMMARY
+   ========================================= */
+
+.admin-receptionists-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.admin-receptionists-summary-card {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 17px;
+  border: 1px solid #ddd6fe;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 4px 16px rgba(79, 70, 229, 0.06);
+}
+
+.admin-receptionists-summary-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 43px;
+  height: 43px;
+  border-radius: 11px;
+  background: linear-gradient(
+    135deg,
+    #ede9fe,
+    #e0e7ff
+  );
+  color: #6d28d9;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.admin-receptionists-summary-card span {
+  display: block;
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.admin-receptionists-summary-card strong {
+  display: block;
+  margin: 2px 0;
+  color: #312e81;
+  font-size: 22px;
+  line-height: 1.1;
+}
+
+.admin-receptionists-summary-card small {
+  color: #9ca3af;
+  font-size: 10px;
+}
+
+/* =========================================
+   FORM CARD
+   ========================================= */
+
+.admin-receptionists-form-card,
+.admin-receptionists-edit-card {
+  margin-bottom: 20px;
+  overflow: hidden;
+  border: 1px solid #ddd6fe;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 5px 20px rgba(79, 70, 229, 0.07);
+}
+
+.admin-receptionists-form-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 20px 22px;
+  border-bottom: 1px solid #ede9fe;
+  background: linear-gradient(
+    135deg,
+    #ffffff,
+    #faf9ff
+  );
+}
+
+.admin-receptionists-form-header p {
+  margin: 0 0 5px;
+  color: #7c3aed;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.3px;
+}
+
+.admin-receptionists-form-header h2 {
+  margin: 0;
+  color: #312e81;
+  font-size: 20px;
+}
+
+.admin-receptionists-form-header small {
+  display: block;
+  margin-top: 6px;
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.admin-receptionists-form-header small strong {
+  color: #6d28d9;
+}
+
+.admin-receptionists-form {
+  padding: 22px;
+}
+
+.admin-receptionists-section-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.admin-receptionists-section-title > span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: #ede9fe;
+  color: #6d28d9;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.admin-receptionists-section-title h3 {
+  margin: 0;
+  color: #312e81;
+  font-size: 15px;
+}
+
+.admin-receptionists-section-title p {
+  margin: 3px 0 0;
+  color: #9ca3af;
+  font-size: 11px;
+}
+
+.admin-receptionists-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.admin-receptionists-form-group {
+  min-width: 0;
+}
+
+.admin-receptionists-form-group.full {
+  grid-column: 1 / -1;
+}
+
+.admin-receptionists-form-group label {
+  display: block;
+  margin-bottom: 6px;
+  color: #374151;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.admin-receptionists-form-group input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid #d8d5e5;
+  border-radius: 9px;
+  outline: none;
+  background: #ffffff;
+  color: #1f2937;
+  font-size: 13px;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.admin-receptionists-form-group input::placeholder {
+  color: #a1a1aa;
+}
+
+.admin-receptionists-form-group input:focus {
+  border-color: #8b5cf6;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+}
+
+.admin-receptionists-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid #f0eef8;
+}
+
+.admin-receptionists-save-btn {
+  min-width: 150px;
+}
+
+/* =========================================
+   SEARCH
+   ========================================= */
+
+.admin-receptionists-search-card {
+  margin-bottom: 20px;
+  padding: 18px 20px;
+  border: 1px solid #ddd6fe;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 4px 16px rgba(79, 70, 229, 0.05);
+}
+
+.admin-receptionists-search-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  margin-bottom: 13px;
+}
+
+.admin-receptionists-search-header p,
+.admin-receptionists-table-header p {
+  margin: 0 0 4px;
+  color: #7c3aed;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+}
+
+.admin-receptionists-search-header h2,
+.admin-receptionists-table-header h2 {
+  margin: 0;
+  color: #312e81;
+  font-size: 17px;
+}
+
+.admin-receptionists-search-header > span,
+.admin-receptionists-table-header > span {
+  padding: 6px 10px;
+  border-radius: 20px;
+  background: #f5f3ff;
+  color: #6d28d9;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.admin-receptionists-search-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid #ddd6fe;
+  border-radius: 10px;
+  background: #faf9ff;
+}
+
+.admin-receptionists-search-box > span {
+  color: #7c3aed;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.admin-receptionists-search-box input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #1f2937;
+  font-size: 13px;
+}
+
+.admin-receptionists-search-box input::placeholder {
+  color: #9ca3af;
+}
+
+.admin-receptionists-search-box button {
+  width: 27px;
+  height: 27px;
+  border: none;
+  border-radius: 7px;
+  background: #ede9fe;
+  color: #6d28d9;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.admin-receptionists-search-footer {
+  margin-top: 9px;
+  color: #8b8a97;
+  font-size: 11px;
+}
+
+/* =========================================
+   TABLE
+   ========================================= */
+
+.admin-receptionists-table-card {
+  overflow: hidden;
+  border: 1px solid #ddd6fe;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 5px 20px rgba(79, 70, 229, 0.06);
+}
+
+.admin-receptionists-table-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  padding: 19px 20px;
+  border-bottom: 1px solid #ede9fe;
+}
+
+.admin-receptionists-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.admin-receptionists-table {
+  width: 100%;
+  min-width: 1120px;
+  border-collapse: collapse;
+}
+
+.admin-receptionists-table th {
+  padding: 12px 14px;
+  border-bottom: 1px solid #e9e7f1;
+  background: #faf9ff;
+  color: #6b7280;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.admin-receptionists-table td {
+  padding: 13px 14px;
+  border-bottom: 1px solid #f0eef6;
+  color: #4b5563;
+  font-size: 12px;
+  vertical-align: middle;
+}
+
+.admin-receptionists-table tbody tr {
+  transition: background 0.15s ease;
+}
+
+.admin-receptionists-table tbody tr:hover {
+  background: #faf9ff;
+}
+
+.admin-receptionists-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* =========================================
+   PERSON
+   ========================================= */
+
+.admin-receptionists-person {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 175px;
+}
+
+.admin-receptionists-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: linear-gradient(
+    135deg,
+    #7c3aed,
+    #6366f1
+  );
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.admin-receptionists-person strong {
+  display: block;
+  color: #312e81;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.admin-receptionists-person span {
+  display: block;
+  margin-top: 3px;
+  color: #7c3aed;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* =========================================
+   ACCOUNT / CONTACT
+   ========================================= */
+
+.admin-receptionists-account strong {
+  display: block;
+  color: #374151;
+  font-size: 12px;
+}
+
+.admin-receptionists-account small {
+  display: block;
+  margin-top: 3px;
+  color: #9ca3af;
+  font-size: 10px;
+}
+
+.admin-receptionists-contact span {
+  display: block;
+  max-width: 190px;
+  overflow: hidden;
+  color: #4b5563;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-receptionists-contact small {
+  display: block;
+  margin-top: 3px;
+  color: #7c3aed;
+  font-size: 10px;
+}
+
+.admin-receptionists-aadhaar {
+  color: #4b5563;
+  font-size: 11px;
+  letter-spacing: 0.2px;
+}
+
+.admin-receptionists-role {
+  display: inline-flex;
+  padding: 5px 8px;
+  border-radius: 7px;
+  background: #ede9fe;
+  color: #6d28d9;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+}
+
+/* =========================================
+   STATUS
+   ========================================= */
+
+.admin-receptionists-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border-radius: 7px;
+  background: #f0fdf4;
+  color: #15803d;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.admin-receptionists-status i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #22c55e;
+}
+
+.admin-receptionists-status:has(i) {
+  white-space: nowrap;
+}
+
+/* =========================================
+   ACTIONS
+   ========================================= */
+
+.admin-receptionists-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.admin-receptionists-edit-btn,
+.admin-receptionists-delete-btn {
+  padding: 7px 10px;
+  border-radius: 7px;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-receptionists-edit-btn {
+  border: 1px solid #ddd6fe;
+  background: #f5f3ff;
+  color: #6d28d9;
+}
+
+.admin-receptionists-edit-btn:hover {
+  background: #ede9fe;
+}
+
+.admin-receptionists-delete-btn {
+  border: 1px solid #fecaca;
+  background: #fff7f7;
+  color: #dc2626;
+}
+
+.admin-receptionists-delete-btn:hover {
+  background: #fee2e2;
+}
+
+/* =========================================
+   EMPTY / LOADING
+   ========================================= */
+
+.admin-receptionists-state,
+.admin-receptionists-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 260px;
+  padding: 35px;
+  text-align: center;
+}
+
+.admin-receptionists-state {
+  min-height: 60vh;
+}
+
+.admin-receptionists-state p,
+.admin-receptionists-empty p {
+  margin: 10px 0 18px;
+  color: #8b8a97;
+  font-size: 13px;
+}
+
+.admin-receptionists-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #ddd6fe;
+  border-top-color: #7c3aed;
+  border-radius: 50%;
+  animation: adminReceptionistsSpin 0.8s linear infinite;
+}
+
+@keyframes adminReceptionistsSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.admin-receptionists-empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 55px;
+  height: 55px;
+  margin-bottom: 10px;
+  border-radius: 14px;
+  background: #ede9fe;
+  color: #6d28d9;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.admin-receptionists-empty h3 {
+  margin: 0;
+  color: #312e81;
+  font-size: 17px;
+}
+
+/* =========================================
+   DELETE MODAL
+   ========================================= */
+
+.admin-receptionists-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(30, 27, 75, 0.45);
+  backdrop-filter: blur(4px);
+}
+
+.admin-receptionists-delete-modal {
+  width: 100%;
+  max-width: 430px;
+  padding: 26px;
+  border: 1px solid #ddd6fe;
+  border-radius: 17px;
+  background: #ffffff;
+  box-shadow: 0 20px 50px rgba(30, 27, 75, 0.2);
+  text-align: center;
+}
+
+.admin-receptionists-delete-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 13px;
+  border-radius: 13px;
+  background: #fee2e2;
+  color: #dc2626;
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.admin-receptionists-delete-modal h2 {
+  margin: 0;
+  color: #312e81;
+  font-size: 20px;
+}
+
+.admin-receptionists-delete-modal > p {
+  margin: 9px 0 15px;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.admin-receptionists-delete-person {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 10px;
+  padding: 12px;
+  border-radius: 10px;
+  background: #faf9ff;
+}
+
+.admin-receptionists-delete-person strong {
+  color: #6d28d9;
+  font-size: 12px;
+}
+
+.admin-receptionists-delete-person span {
+  color: #374151;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.admin-receptionists-delete-modal > small {
+  color: #9ca3af;
+  font-size: 10px;
+}
+
+.admin-receptionists-modal-actions {
+  display: flex;
+  justify-content: center;
+  gap: 9px;
+  margin-top: 22px;
+}
+
+.admin-receptionists-confirm-delete-btn {
+  border: none;
+  border-radius: 9px;
+  padding: 10px 15px;
+  background: #dc2626;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-receptionists-confirm-delete-btn:hover {
+  background: #b91c1c;
+}
+
+/* =========================================
+   RESPONSIVE
+   ========================================= */
+
+@media (max-width: 1100px) {
+  .admin-receptionists-summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 800px) {
+  .admin-receptionists-page {
+    padding: 20px;
+  }
+
+  .admin-receptionists-header {
+    flex-direction: column;
+  }
+
+  .admin-receptionists-header-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .admin-receptionists-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-receptionists-form-group.full {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 600px) {
+  .admin-receptionists-page {
+    padding: 14px;
+  }
+
+  .admin-receptionists-header h1 {
+    font-size: 25px;
+  }
+
+  .admin-receptionists-header-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-receptionists-count {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .admin-receptionists-primary-btn {
+    width: 100%;
+  }
+
+  .admin-receptionists-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-receptionists-form,
+  .admin-receptionists-form-header {
+    padding: 16px;
+  }
+
+  .admin-receptionists-form-actions,
+  .admin-receptionists-modal-actions {
+    flex-direction: column-reverse;
+  }
+
+  .admin-receptionists-form-actions button,
+  .admin-receptionists-modal-actions button {
+    width: 100%;
+  }
+
+  .admin-receptionists-search-card {
+    padding: 15px;
+  }
+
+  .admin-receptionists-search-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .admin-receptionists-table-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .admin-receptionists-delete-modal {
+    padding: 21px;
+  }
+}

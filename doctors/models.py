@@ -7,6 +7,14 @@ from departments.models import Department
 
 
 class DoctorProfile(models.Model):
+    doctor_id = models.CharField(
+        max_length=20,
+        unique=True,
+        null=True,
+        blank=True,
+        editable=False,
+    )
+
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -17,6 +25,14 @@ class DoctorProfile(models.Model):
         Department,
         on_delete=models.PROTECT,
         related_name='doctors'
+    )
+
+    consultation_room = models.OneToOneField(
+        'rooms.Room',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='assigned_doctor'
     )
 
     specialization = models.CharField(max_length=100)
@@ -41,8 +57,22 @@ class DoctorProfile(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
 
+    def save(self, *args, **kwargs):
+        if not self.doctor_id:
+            last_doctor = DoctorProfile.objects.order_by('-id').first()
+
+            if last_doctor:
+                next_number = last_doctor.id + 1
+            else:
+                next_number = 1
+
+            self.doctor_id = f"DOC{next_number:04d}"
+
+        super().save(*args, **kwargs)
+
+
     def __str__(self):
-        return f"{self.user.get_full_name()} - {self.specialization}"
+        return f"{self.doctor_id} - {self.user.get_full_name()} - {self.specialization}"
 
 
 

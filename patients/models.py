@@ -25,7 +25,9 @@ class PatientProfile(models.Model):
 
     patient_id = models.CharField(
         max_length=20,
-        unique=True
+        unique=True,
+        blank=True
+
     )
 
     user = models.OneToOneField(
@@ -76,6 +78,19 @@ class PatientProfile(models.Model):
     created_at = models.DateTimeField(
         auto_now_add=True
     )
+
+    def save(self, *args, **kwargs):
+        if not self.patient_id:
+            last_patient = PatientProfile.objects.order_by('-id').first()
+
+            if last_patient:
+                next_number = last_patient.id + 1
+            else:
+                next_number = 1
+
+            self.patient_id = f"PAT{next_number:04d}"
+
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.patient_id}"

@@ -7,9 +7,10 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from django.utils import timezone
 
 
-from django.db import transaction
+from django.db import transaction, models
 from django.contrib.auth import get_user_model
 User = get_user_model()
 
@@ -17,7 +18,7 @@ User = get_user_model()
 from departments.models import Department
 from doctors.models import DoctorProfile, DoctorAvailability
 from patients.models import PatientProfile
-from datetime import date
+from datetime import date, datetime, timedelta
 from appointments.models import Appointment
 from medical_records.models import MedicalRecord
 from prescriptions.models import Prescription
@@ -27,12 +28,14 @@ from admissions.models import Admission
 from rooms.models import Room, Bed
 from audit_logs.models import AuditLog
 from audit_logs.utils import create_audit_log
+from receptionists.models import ReceptionistProfile
 
 
 
 from .serializers import (
     RegisterSerializer, 
     UserProfileSerializer,
+    PatientProfileUpdateSerializer,
     DepartmentSerializer,
     DoctorSerializer,
     DoctorCreateSerializer,
@@ -55,6 +58,8 @@ from .serializers import (
     RoomSerializer, 
     BedSerializer,
     AuditLogSerializer,
+    AdminUserUpdateSerializer,
+    ReceptionistSerializer,
 )
 
 
@@ -89,6 +94,40 @@ def profile(request):
     return Response(serializer.data)
 
 
+@api_view(['PUT', 'PATCH'])
+@permission_classes([IsAuthenticated])
+def patient_profile_update(request):
+
+    # Only patients can update their own profile
+    if request.user.role != User.Role.PATIENT:
+        return Response(
+            {
+                'error':
+                'Only patients can update their own profile.'
+            },
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    serializer = PatientProfileUpdateSerializer(
+        request.user,
+        data=request.data,
+        partial=(request.method == 'PATCH')
+    )
+
+    if serializer.is_valid():
+        serializer.save()
+
+        return Response(
+            UserProfileSerializer(
+                request.user
+            ).data,
+            status=status.HTTP_200_OK
+        )
+
+    return Response(
+        serializer.errors,
+        status=status.HTTP_400_BAD_REQUEST
+    )
 
 
 @api_view(['GET', 'POST'])
@@ -102,6 +141,13 @@ def department_list_create(request):
         return Response(serializer.data)
 
     elif request.method == 'POST':
+
+        if request.user.role != User.Role.ADMIN:
+            return Response(
+                {'error': 'Only Admin can create departments.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
         serializer = DepartmentSerializer(data=request.data)
 
         if serializer.is_valid():
@@ -135,6 +181,12 @@ def department_detail(request, pk):
         serializer = DepartmentSerializer(department)
 
         return Response(serializer.data)
+
+    if request.method in ['PUT', 'DELETE'] and request.user.role != User.Role.ADMIN:
+        return Response(
+            {'error': 'Only Admin can manage departments.'},
+            status=status.HTTP_403_FORBIDDEN
+        )
 
     elif request.method == 'PUT':
         serializer = DepartmentSerializer(
@@ -232,7 +284,7 @@ def doctor_list_create(request):
         )
 
 
-@api_view(['GET', 'PUT', 'DELETE'])
+@api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
 @permission_classes([IsAuthenticated])
 def doctor_detail(request, pk):
 
@@ -250,75 +302,79 @@ def doctor_detail(request, pk):
             status=status.HTTP_404_NOT_FOUND
         )
 
-    # Anyone authenticated can view a doctor
+    # ==========================================
+    # GET DOCTOR
+    # ==========================================
+
     if request.method == 'GET':
-        serializer = DoctorSerializer(doctor)
 
-        return Response(serializer.data)
+        serializer = DoctorSerializer(
+            doctor
+        )
 
-    # Only Admin and Receptionist can update/delete doctors
-    if request.user.role not in ['ADMIN', 'RECEPTIONIST']:
+        return Response(
+            serializer.data
+        )
+
+    # ==========================================
+    # ONLY ADMIN / RECEPTIONIST CAN UPDATE/DELETE
+    # ==========================================
+
+    if request.user.role not in [
+        User.Role.ADMIN,
+        User.Role.RECEPTIONIST
+    ]:
+
         return Response(
             {
-                'error': 'You do not have permission to manage doctors.'
+                'error':
+                    'You do not have permission to manage doctors.'
             },
             status=status.HTTP_403_FORBIDDEN
         )
 
+    # ==========================================
     # UPDATE DOCTOR
-    if request.method == 'PUT':
+    # ==========================================
+
+    if request.method in ['PUT', 'PATCH']:
 
         serializer = DoctorUpdateSerializer(
             doctor,
-            data=request.data
+            data=request.data,
+            partial=(request.method == 'PATCH')
         )
 
         if serializer.is_valid():
 
-            with transaction.atomic():
+            try:
 
-                data = serializer.validated_data
+                with transaction.atomic():
 
-                username = data.pop('username', None)
-                password = data.pop('password', None)
-                first_name = data.pop('first_name', None)
-                last_name = data.pop('last_name', None)
-                email = data.pop('email', None)
-                mobile_number = data.pop('mobile_number', None)
-                aadhaar_number = data.pop('aadhaar_number', None)
+                    # IMPORTANT:
+                    # Use serializer.save() here.
+                    #
+                    # This calls DoctorUpdateSerializer.update()
+                    # which updates:
+                    # 1. Doctor/User information
+                    # 2. Consultation room
+                    # 3. Future SCHEDULED/CONFIRMED
+                    #    appointment rooms
 
-                user = doctor.user
-
-                if username is not None:
-                    user.username = username
-
-                if password is not None:
-                    user.set_password(password)
-
-                if first_name is not None:
-                    user.first_name = first_name
-
-                if last_name is not None:
-                    user.last_name = last_name
-
-                if email is not None:
-                    user.email = email
-
-                if mobile_number is not None:
-                    user.mobile_number = mobile_number
-
-                if aadhaar_number is not None:
-                    user.aadhaar_number = aadhaar_number
-
-                user.save()
-
-                for field, value in data.items():
-                    setattr(doctor, field, value)
-
-                doctor.save()
+                    doctor = serializer.save()
 
                 return Response(
-                    DoctorSerializer(doctor).data
+                    DoctorSerializer(doctor).data,
+                    status=status.HTTP_200_OK
+                )
+
+            except Exception as e:
+
+                return Response(
+                    {
+                        'error': str(e)
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
                 )
 
         return Response(
@@ -326,8 +382,21 @@ def doctor_detail(request, pk):
             status=status.HTTP_400_BAD_REQUEST
         )
 
+    # ==========================================
     # DELETE DOCTOR
-    elif request.method == 'DELETE':
+    # ==========================================
+
+    if request.method == 'DELETE':
+
+        if request.user.role != User.Role.ADMIN:
+
+            return Response(
+                {
+                    'error':
+                        'Only Admin can delete doctors.'
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
 
         with transaction.atomic():
 
@@ -338,7 +407,8 @@ def doctor_detail(request, pk):
 
         return Response(
             {
-                'message': 'Doctor deleted successfully'
+                'message':
+                    'Doctor deleted successfully'
             },
             status=status.HTTP_204_NO_CONTENT
         )
@@ -377,6 +447,7 @@ def doctor_availability_list_create(request):
         # Only Admin and Doctor can create availability
         if request.user.role not in [
             User.Role.ADMIN,
+            User.Role.RECEPTIONIST,
             User.Role.DOCTOR
         ]:
             return Response(
@@ -491,6 +562,7 @@ def doctor_availability_detail(request, pk):
     # PUT / DELETE permission
     if request.user.role not in [
         User.Role.ADMIN,
+        User.Role.RECEPTIONIST,
         User.Role.DOCTOR
     ]:
         return Response(
@@ -711,6 +783,49 @@ def patient_list_create(request):
         )
 
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def patient_search(request):
+
+    # Only Admin and Receptionist can search all patients
+    if request.user.role not in [
+        User.Role.ADMIN,
+        User.Role.RECEPTIONIST
+    ]:
+        return Response(
+            {
+                'error': 'You do not have permission to search patients.'
+            },
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    search = request.GET.get('search', '').strip()
+
+    if not search:
+        return Response(
+            {
+                'error': 'Search value is required.'
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    patients = PatientProfile.objects.select_related(
+        'user'
+    ).filter(
+        models.Q(patient_id__icontains=search) |
+        models.Q(user__aadhaar_number=search) |
+        models.Q(user__first_name__icontains=search) |
+        models.Q(user__last_name__icontains=search)
+    )
+
+    serializer = PatientSerializer(
+        patients,
+        many=True
+    )
+
+    return Response(serializer.data)
+
+
 @api_view(['GET', 'PUT', 'DELETE'])
 @permission_classes([IsAuthenticated])
 def patient_detail(request, pk):
@@ -765,7 +880,7 @@ def patient_detail(request, pk):
                 email = data.pop('email', None)
                 mobile_number = data.pop('mobile_number', None)
                 aadhaar_number = data.pop('aadhaar_number', None)
-
+                
                 user = patient.user
 
                 if username is not None:
@@ -806,6 +921,13 @@ def patient_detail(request, pk):
         )
 
     # DELETE
+
+    if request.method == 'DELETE' and request.user.role != User.Role.ADMIN:
+        return Response(
+            {'error': 'Only Admin can delete patients.'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
     elif request.method == 'DELETE':
 
         with transaction.atomic():
@@ -835,8 +957,12 @@ def appointment_list_create(request):
         appointments = Appointment.objects.select_related(
             'patient__user',
             'doctor__user',
-            'doctor__department'
-        ).all()
+            'doctor__department',
+            'appointment_room'
+        ).all().order_by(
+            '-appointment_date',
+            '-appointment_time'
+        )
 
 
         # --------------------------------
@@ -883,8 +1009,36 @@ def appointment_list_create(request):
     # POST
     elif request.method == 'POST':
 
+        data = request.data.copy()
+
+        # --------------------------------
+        # Patient
+        # → Automatically use logged-in
+        #   patient's PatientProfile
+        # --------------------------------
+
+        if request.user.role == User.Role.PATIENT:
+
+            try:
+                patient = PatientProfile.objects.get(
+                    user=request.user
+                )
+
+            except PatientProfile.DoesNotExist:
+
+                return Response(
+                    {
+                        'error':
+                        'Patient profile not found.'
+                    },
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            # Never trust patient ID from frontend
+            data['patient'] = patient.id
+
         serializer = AppointmentCreateSerializer(
-            data=request.data
+            data=data
         )
 
         if serializer.is_valid():
@@ -892,6 +1046,22 @@ def appointment_list_create(request):
             patient = serializer.validated_data['patient']
 
             doctor = serializer.validated_data['doctor']
+
+            # --------------------------------
+            # Doctor consultation room
+            # → Doctor must have an assigned
+            #   consultation room
+            # --------------------------------
+
+            if doctor.consultation_room is None:
+
+                return Response(
+                    {
+                        'error':
+                            'This doctor does not have a consultation room assigned.'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
             appointment_date = serializer.validated_data[
                 'appointment_date'
@@ -948,26 +1118,126 @@ def appointment_list_create(request):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            # --------------------------------
-            # Check doctor availability
+
+             # --------------------------------
+            # Prevent multiple appointments
+            # with same doctor on same date
             # --------------------------------
 
-            day_of_week = appointment_date.weekday()
-
-            doctor_available = DoctorAvailability.objects.filter(
+            patient_already_booked = Appointment.objects.filter(
+                patient=patient,
                 doctor=doctor,
-                day_of_week=day_of_week,
-                is_available=True,
-                start_time__lte=appointment_time,
-                end_time__gte=appointment_time
+                appointment_date=appointment_date
+            ).exclude(
+                status=Appointment.Status.CANCELLED
             ).exists()
 
-            if not doctor_available:
+            if patient_already_booked:
 
                 return Response(
                     {
                         'error':
-                        'Doctor is not available on this date and time.'
+                            'You already have an active appointment '
+                            'with this doctor on this date.'
+                    },
+                    status=status.HTTP_409_CONFLICT
+                )
+             
+
+            # --------------------------------
+            # Check doctor availability
+            # --------------------------------
+
+            # --------------------------------
+            # Check 15-minute appointment slot
+            # --------------------------------
+
+            # Appointment duration is fixed at 15 minutes
+            APPOINTMENT_DURATION = timedelta(minutes=15)
+
+            # Appointment must start on a 15-minute boundary
+            if appointment_time.minute % 15 != 0:
+                return Response(
+                    {
+                        'error':
+                            'Appointments can only be booked in 15-minute slots.',
+                        'available_timings': []
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+             )
+
+            day_of_week = appointment_date.weekday()
+
+            # Calculate appointment end time
+            appointment_start = datetime.combine(
+                appointment_date,
+                appointment_time
+            )
+
+            appointment_end = appointment_start + APPOINTMENT_DURATION
+
+            doctor_available = False
+
+            available_slots = DoctorAvailability.objects.filter(
+                doctor=doctor,
+                day_of_week=day_of_week,
+                is_available=True
+            ).order_by('start_time')
+
+            for slot in available_slots:
+
+                slot_start = datetime.combine(
+                    appointment_date,
+                    slot.start_time
+                )
+
+                slot_end = datetime.combine(
+                    appointment_date,
+                    slot.end_time
+                )
+
+    # Entire 15-minute appointment must fit
+    # inside doctor's availability
+                if (
+                    slot_start <= appointment_start
+                    and appointment_end <= slot_end
+                ):
+                    doctor_available = True
+                    break
+
+            if not doctor_available:
+
+                available_slots = DoctorAvailability.objects.filter(
+                    doctor=doctor,
+                    day_of_week=day_of_week,
+                    is_available=True
+                ).order_by('start_time')
+
+                if available_slots.exists():
+
+                    timings = []
+
+                    for slot in available_slots:
+                        timings.append(
+                            f"{slot.start_time.strftime('%I:%M %p')} - "
+                            f"{slot.end_time.strftime('%I:%M %p')}"
+                        )
+
+                    return Response(
+                        {
+                            'error':
+                                'Doctor is not available at the selected date and time.',
+                            'available_timings':
+                                timings
+                        },
+                    status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                return Response(
+                    {
+                        'error':
+                            'Doctor is not available on the selected day.',
+                        'available_timings': []
                     },
                     status=status.HTTP_400_BAD_REQUEST
                 )
@@ -998,7 +1268,9 @@ def appointment_list_create(request):
             # Create appointment
             # --------------------------------
 
-            appointment = serializer.save()
+            appointment = serializer.save(
+                appointment_room=doctor.consultation_room
+            )
 
             return Response(
                 AppointmentSerializer(appointment).data,
@@ -1009,9 +1281,209 @@ def appointment_list_create(request):
             serializer.errors,
             status=status.HTTP_400_BAD_REQUEST
         )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def appointment_available_slots(request):
+
+    doctor_id = request.GET.get('doctor')
+    appointment_date = request.GET.get('date')
+
+    # --------------------------------
+    # Validate required parameters
+    # --------------------------------
+
+    if not doctor_id:
+        return Response(
+            {
+                'error': 'Doctor is required.'
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if not appointment_date:
+        return Response(
+            {
+                'error': 'Date is required.'
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # --------------------------------
+    # Validate doctor
+    # --------------------------------
+
+    try:
+        doctor = DoctorProfile.objects.get(
+            pk=doctor_id
+        )
+
+    except DoctorProfile.DoesNotExist:
+        return Response(
+            {
+                'error': 'Doctor not found.'
+            },
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    if doctor.consultation_room is None:
+        return Response(
+            {
+                'available_slots': [],
+                'error': 'This doctor does not have a consultation room assigned.'
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # --------------------------------
+    # Validate date
+    # --------------------------------
+
+    try:
+        selected_date = date.fromisoformat(
+            appointment_date
+        )
+
+    except ValueError:
+        return Response(
+            {
+                'error': 'Invalid appointment date.'
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # --------------------------------
+    # Prevent past dates
+    # --------------------------------
+
+    if selected_date < date.today():
+        return Response(
+            {
+                'error': 'Appointment date cannot be in the past.',
+                'available_slots': []
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # --------------------------------
+    # Find doctor's availability
+    # --------------------------------
+
+    day_of_week = selected_date.weekday()
+
+    availability = DoctorAvailability.objects.filter(
+        doctor=doctor,
+        day_of_week=day_of_week,
+        is_available=True
+    ).order_by(
+        'start_time'
+    )
+
+    if not availability.exists():
+        return Response(
+            {
+                'available_slots': []
+            },
+            status=status.HTTP_200_OK
+        )
+
+    # --------------------------------
+    # Get already booked appointments
+    # --------------------------------
+
+    booked_appointments = Appointment.objects.filter(
+        doctor=doctor,
+        appointment_date=selected_date
+    ).exclude(
+        status=Appointment.Status.CANCELLED
+    ).values_list(
+        'appointment_time',
+        flat=True
+    )
+
+    booked_times = set(
+        booked_appointments
+    )
+
+    # --------------------------------
+    # Generate 15-minute slots
+    # --------------------------------
+
+    APPOINTMENT_DURATION = timedelta(
+        minutes=15
+    )
+
+    available_slots = []
+
+    for availability_slot in availability:
+
+        slot_start = datetime.combine(
+            selected_date,
+            availability_slot.start_time
+        )
+
+        slot_end = datetime.combine(
+            selected_date,
+            availability_slot.end_time
+        )
+
+        current_time = slot_start
+
+        while (
+            current_time + APPOINTMENT_DURATION
+            <= slot_end
+        ):
+
+            slot_time = current_time.time()
+
+            # --------------------------------
+            # Don't show already booked slots
+            # --------------------------------
+
+            if slot_time not in booked_times:
+
+                available_slots.append(
+                    {
+                        'value': slot_time.strftime(
+                            '%H:%M'
+                        ),
+                        'display': slot_time.strftime(
+                            '%I:%M %p'
+                        )
+                    }
+                )
+
+            current_time += APPOINTMENT_DURATION
+
+    # --------------------------------
+    # Remove duplicates
+    # --------------------------------
+
+    unique_slots = []
+    seen_times = set()
+
+    for slot in available_slots:
+
+        if slot['value'] not in seen_times:
+
+            seen_times.add(
+                slot['value']
+            )
+
+            unique_slots.append(
+                slot
+            )
+
+    return Response(
+        {
+            'available_slots': unique_slots
+        },
+        status=status.HTTP_200_OK
+    )
     
 
-@api_view(['GET', 'PUT', 'DELETE'])
+@api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
 @permission_classes([IsAuthenticated])
 def appointment_detail(request, pk):
 
@@ -1019,7 +1491,8 @@ def appointment_detail(request, pk):
         appointment = Appointment.objects.select_related(
             'patient__user',
             'doctor__user',
-            'doctor__department'
+            'doctor__department',
+            'appointment_room'
         ).get(pk=pk)
 
     except Appointment.DoesNotExist:
@@ -1030,235 +1503,387 @@ def appointment_detail(request, pk):
             status=status.HTTP_404_NOT_FOUND
         )
 
-    # GET
+    # ==========================================
+    # GET APPOINTMENT
+    # ==========================================
+
     if request.method == 'GET':
 
-        # Admin and Receptionist can view any appointment
+        # Admin and Receptionist
         if request.user.role in [
             User.Role.ADMIN,
             User.Role.RECEPTIONIST
         ]:
-            serializer = AppointmentSerializer(appointment)
-            return Response(serializer.data)
 
-        # Doctor can view only their appointments
+            serializer = AppointmentSerializer(
+                appointment
+            )
+
+            return Response(
+                serializer.data
+            )
+
+        # Doctor
         if request.user.role == User.Role.DOCTOR:
 
             if appointment.doctor.user_id != request.user.id:
+
                 return Response(
                     {
                         'error':
-                        'You can only view your own appointments.'
+                            'You can only view your own appointments.'
                     },
                     status=status.HTTP_403_FORBIDDEN
                 )
 
-            serializer = AppointmentSerializer(appointment)
-            return Response(serializer.data)
+        if request.user.role == 'DOCTOR':
+            if appointment.appointment_date > timezone.localdate():
+                return Response(
+                    {
+                        'error': 'Doctors cannot edit future appointments.'
+                    },
+                    status=status.HTTP_403_FORBIDDEN
+                )
 
-        # Patient can view only their appointments
+            serializer = AppointmentSerializer(
+                appointment
+            )
+
+            return Response(
+                serializer.data
+            )
+
+        # Patient
         if request.user.role == User.Role.PATIENT:
 
             if appointment.patient.user_id != request.user.id:
+
                 return Response(
                     {
                         'error':
-                        'You can only view your own appointments.'
+                            'You can only view your own appointments.'
                     },
                     status=status.HTTP_403_FORBIDDEN
                 )
 
-            serializer = AppointmentSerializer(appointment)
-            return Response(serializer.data)
+            serializer = AppointmentSerializer(
+                appointment
+            )
 
-    # PUT and DELETE permissions
+            return Response(
+                serializer.data
+            )
+
+    # ==========================================
+    # CHECK MANAGEMENT PERMISSION
+    # ==========================================
+
     if request.user.role not in [
         User.Role.ADMIN,
         User.Role.RECEPTIONIST,
         User.Role.DOCTOR,
         User.Role.PATIENT
     ]:
+
         return Response(
             {
                 'error':
-                'You do not have permission to manage this appointment.'
+                    'You do not have permission to manage this appointment.'
             },
             status=status.HTTP_403_FORBIDDEN
         )
 
-    # PUT
-    if request.method == 'PUT':
+    # ==========================================
+    # UPDATE APPOINTMENT
+    # PUT / PATCH
+    # ==========================================
 
+    if request.method in ['PUT', 'PATCH']:
+
+        # ------------------------------------------
         # Doctor can update only their appointments
+        # ------------------------------------------
+
         if request.user.role == User.Role.DOCTOR:
 
             if appointment.doctor.user_id != request.user.id:
+
                 return Response(
                     {
                         'error':
-                        'You can only update your own appointments.'
+                            'You can only update your own appointments.'
                     },
                     status=status.HTTP_403_FORBIDDEN
                 )
 
+        # ------------------------------------------
         # Patient can update only their appointments
+        # ------------------------------------------
+
         elif request.user.role == User.Role.PATIENT:
 
             if appointment.patient.user_id != request.user.id:
+
                 return Response(
                     {
                         'error':
-                        'You can only update your own appointments.'
+                            'You can only update your own appointments.'
                     },
                     status=status.HTTP_403_FORBIDDEN
                 )
+
+        # ------------------------------------------
+        # Serializer
+        # ------------------------------------------
 
         serializer = AppointmentUpdateSerializer(
             appointment,
-            data=request.data
+            data=request.data,
+            partial=(request.method == 'PATCH')
         )
 
-        if serializer.is_valid():
-
-            data = serializer.validated_data
-
-            appointment_date = data.get(
-                'appointment_date',
-                appointment.appointment_date
-            )
-
-            appointment_time = data.get(
-                'appointment_time',
-                appointment.appointment_time
-            )
-
-
-            new_status = data.get(
-                'status',
-                appointment.status
-            )
-
-            current_status = appointment.status
-
-            # --------------------------------
-            # Status transition validation
-            # --------------------------------
-
-            allowed_transitions = {
-
-                Appointment.Status.SCHEDULED: [
-                    Appointment.Status.SCHEDULED,
-                    Appointment.Status.CONFIRMED,
-                    Appointment.Status.CANCELLED,
-                ],
-
-             Appointment.Status.CONFIRMED: [
-                    Appointment.Status.CONFIRMED,
-                    Appointment.Status.COMPLETED,
-                    Appointment.Status.CANCELLED,
-                    Appointment.Status.NO_SHOW,
-                ],
-
-                Appointment.Status.COMPLETED: [
-                    Appointment.Status.COMPLETED,
-                ],
-
-                Appointment.Status.CANCELLED: [
-                    Appointment.Status.CANCELLED,
-                ],
-
-                Appointment.Status.NO_SHOW: [
-                    Appointment.Status.NO_SHOW,
-                ],
-            }
-
-            if new_status not in allowed_transitions[current_status]:
-
-                return Response(
-                    {
-                        'error':
-                        f'Cannot change appointment status from '
-                        f'{current_status} to {new_status}.'
-                    },
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-            doctor = appointment.doctor
-
-            # Prevent double booking during update
-            doctor_booked = Appointment.objects.filter(
-                doctor=doctor,
-                appointment_date=appointment_date,
-                appointment_time=appointment_time
-            ).exclude(
-                pk=appointment.pk
-            ).exclude(
-                status=Appointment.Status.CANCELLED
-            ).exists()
-
-            if doctor_booked:
-                return Response(
-                    {
-                        'error':
-                        'Doctor is already booked for this date and time.'
-                    },
-                    status=status.HTTP_409_CONFLICT
-                )
-
-            # Prevent past appointment dates
-            if appointment_date < date.today():
-                return Response(
-                    {
-                        'error':
-                        'Appointment date cannot be in the past.'
-                    },
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-            appointment = serializer.save()
+        if not serializer.is_valid():
 
             return Response(
-                AppointmentSerializer(appointment).data
+                serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST
             )
 
-        return Response(
-            serializer.errors,
-            status=status.HTTP_400_BAD_REQUEST
+        data = serializer.validated_data
+
+        # ------------------------------------------
+        # Get new values
+        # ------------------------------------------
+
+        appointment_date = data.get(
+            'appointment_date',
+            appointment.appointment_date
         )
 
-    # DELETE
-    elif request.method == 'DELETE':
+        appointment_time = data.get(
+            'appointment_time',
+            appointment.appointment_time
+        )
 
-        # Patient can only cancel their own appointment
+        new_status = data.get(
+            'status',
+            appointment.status
+        )
+
+        current_status = appointment.status
+
+        # ==========================================
+        # STATUS TRANSITION VALIDATION
+        # ==========================================
+
+        allowed_transitions = {
+
+            Appointment.Status.SCHEDULED: [
+                Appointment.Status.SCHEDULED,
+                Appointment.Status.CONFIRMED,
+                Appointment.Status.CANCELLED,
+            ],
+
+            Appointment.Status.CONFIRMED: [
+                Appointment.Status.CONFIRMED,
+                Appointment.Status.COMPLETED,
+                Appointment.Status.CANCELLED,
+                Appointment.Status.NO_SHOW,
+            ],
+
+            Appointment.Status.COMPLETED: [
+                Appointment.Status.COMPLETED,
+            ],
+
+            Appointment.Status.CANCELLED: [
+                Appointment.Status.CANCELLED,
+            ],
+
+            Appointment.Status.NO_SHOW: [
+                Appointment.Status.NO_SHOW,
+            ],
+        }
+
+        if new_status not in allowed_transitions.get(
+            current_status,
+            []
+        ):
+
+            return Response(
+                {
+                    'error':
+                        f'Cannot change appointment status from '
+                        f'{current_status} to {new_status}.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # ==========================================
+        # GET DOCTOR
+        # ==========================================
+
+        doctor = appointment.doctor
+
+        # ==========================================
+        # DOCTOR MUST HAVE CONSULTATION ROOM
+        # ==========================================
+
+        if doctor.consultation_room is None:
+
+            return Response(
+                {
+                    'error':
+                        'This doctor does not have a consultation room assigned.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # ==========================================
+        # PREVENT PAST APPOINTMENT DATE
+        # ==========================================
+
+        if appointment_date < date.today():
+
+            return Response(
+                {
+                    'error':
+                        'Appointment date cannot be in the past.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # ==========================================
+        # PREVENT DOUBLE BOOKING
+        # ==========================================
+
+        doctor_booked = Appointment.objects.filter(
+            doctor=doctor,
+            appointment_date=appointment_date,
+            appointment_time=appointment_time
+        ).exclude(
+            pk=appointment.pk
+        ).exclude(
+            status=Appointment.Status.CANCELLED
+        ).exists()
+
+        if doctor_booked:
+
+            return Response(
+                {
+                    'error':
+                        'Doctor is already booked for this date and time.'
+                },
+                status=status.HTTP_409_CONFLICT
+            )
+
+        # ==========================================
+        # CHECK WHETHER DATE/TIME CHANGED
+        # ==========================================
+
+        date_changed = (
+            appointment_date != appointment.appointment_date
+        )
+
+        time_changed = (
+            appointment_time != appointment.appointment_time
+        )
+
+        appointment_schedule_changed = (
+            date_changed or time_changed
+        )
+
+        # ==========================================
+        # SAVE APPOINTMENT
+        # ==========================================
+
+        appointment = serializer.save()
+
+        # ==========================================
+        # ROOM SNAPSHOT LOGIC
+        # ==========================================
+        #
+        # If date/time changes:
+        # use doctor's CURRENT consultation room.
+        #
+        # If only status/reason/notes changes:
+        # keep the appointment's existing room.
+        #
+        # This preserves the historical room.
+        # ==========================================
+
+        if appointment_schedule_changed:
+
+            appointment.appointment_room = (
+                doctor.consultation_room
+            )
+
+            appointment.save(
+                update_fields=[
+                    'appointment_room'
+                ]
+            )
+
+        # ==========================================
+        # RETURN UPDATED APPOINTMENT
+        # ==========================================
+
+        appointment = Appointment.objects.select_related(
+            'patient__user',
+            'doctor__user',
+            'doctor__department',
+            'appointment_room'
+        ).get(
+            pk=appointment.pk
+        )
+
+        return Response(
+            AppointmentSerializer(
+                appointment
+            ).data,
+            status=status.HTTP_200_OK
+        )
+
+    # ==========================================
+    # DELETE / CANCEL APPOINTMENT
+    # ==========================================
+
+    if request.method == 'DELETE':
+
+        # ------------------------------------------
+        # Patient
+        # ------------------------------------------
+
         if request.user.role == User.Role.PATIENT:
 
             if appointment.patient.user_id != request.user.id:
+
                 return Response(
                     {
                         'error':
-                        'You can only cancel your own appointments.'
+                            'You can only cancel your own appointments.'
                     },
                     status=status.HTTP_403_FORBIDDEN
                 )
-
-            # Instead of physically deleting it,
-            # mark it as cancelled.
 
             if appointment.status in [
                 Appointment.Status.COMPLETED,
                 Appointment.Status.CANCELLED,
                 Appointment.Status.NO_SHOW
             ]:
+
                 return Response(
                     {
                         'error':
-                        f'Appointment cannot be cancelled because its '
-                        f'current status is {appointment.status}.'
+                            f'Appointment cannot be cancelled because its '
+                            f'current status is {appointment.status}.'
                     },
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            appointment.status = Appointment.Status.CANCELLED
+            appointment.status = (
+                Appointment.Status.CANCELLED
+            )
+
             appointment.save(
                 update_fields=['status']
             )
@@ -1266,40 +1891,46 @@ def appointment_detail(request, pk):
             return Response(
                 {
                     'message':
-                    'Appointment cancelled successfully.'
+                        'Appointment cancelled successfully.'
                 },
                 status=status.HTTP_200_OK
             )
 
-        # Doctor can delete/cancel only their appointments
+        # ------------------------------------------
+        # Doctor
+        # ------------------------------------------
+
         elif request.user.role == User.Role.DOCTOR:
 
             if appointment.doctor.user_id != request.user.id:
+
                 return Response(
                     {
                         'error':
-                        'You can only cancel your own appointments.'
+                            'You can only cancel your own appointments.'
                     },
                     status=status.HTTP_403_FORBIDDEN
                 )
-            
 
             if appointment.status in [
                 Appointment.Status.COMPLETED,
                 Appointment.Status.CANCELLED,
                 Appointment.Status.NO_SHOW
             ]:
+
                 return Response(
                     {
-                    'error':
-                        f'Appointment cannot be cancelled because its '
-                        f'current status is {appointment.status}.'
+                        'error':
+                            f'Appointment cannot be cancelled because its '
+                            f'current status is {appointment.status}.'
                     },
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            
 
-            appointment.status = Appointment.Status.CANCELLED
+            appointment.status = (
+                Appointment.Status.CANCELLED
+            )
+
             appointment.save(
                 update_fields=['status']
             )
@@ -1307,33 +1938,38 @@ def appointment_detail(request, pk):
             return Response(
                 {
                     'message':
-                    'Appointment cancelled successfully.'
+                        'Appointment cancelled successfully.'
                 },
                 status=status.HTTP_200_OK
             )
 
-        # Admin and Receptionist can cancel appointments
+        # ------------------------------------------
+        # Admin / Receptionist
+        # ------------------------------------------
+
         elif request.user.role in [
             User.Role.ADMIN,
             User.Role.RECEPTIONIST
         ]:
 
-            # Prevent cancellation of terminal appointments
             if appointment.status in [
                 Appointment.Status.COMPLETED,
                 Appointment.Status.CANCELLED,
                 Appointment.Status.NO_SHOW
             ]:
+
                 return Response(
                     {
                         'error':
-                        f'Appointment cannot be cancelled because its '
-                        f'current status is {appointment.status}.'
+                            f'Appointment cannot be cancelled because its '
+                            f'current status is {appointment.status}.'
                     },
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            appointment.status = Appointment.Status.CANCELLED
+            appointment.status = (
+                Appointment.Status.CANCELLED
+            )
 
             appointment.save(
                 update_fields=['status']
@@ -1342,7 +1978,7 @@ def appointment_detail(request, pk):
             return Response(
                 {
                     'message':
-                    'Appointment cancelled successfully.'
+                        'Appointment cancelled successfully.'
                 },
                 status=status.HTTP_200_OK
             )
@@ -2591,7 +3227,16 @@ def lab_test_list_create(request):
 
         if serializer.is_valid():
 
-            lab_test = serializer.save()
+            lab_test = LabTest.objects.create(
+                patient=patient,
+                doctor=doctor,
+                medical_record=medical_record,
+                test_name=test_name,
+                test_type=test_type,
+                status=LabTest.Status.REQUESTED,
+                test_date=request.data.get('test_date'),
+                notes=request.data.get('notes', '')
+            )
 
             create_audit_log(
                 user=request.user,
@@ -3026,7 +3671,21 @@ def lab_result_list_create(request):
 
         if serializer.is_valid():
 
-            lab_result = serializer.save()
+            lab_result = LabResult.objects.create(
+            lab_test=lab_test,
+            result=request.data.get('result'),
+            normal_range=request.data.get(
+                'normal_range',
+                ''
+            ),
+            remarks=request.data.get(
+                'remarks',
+                ''
+            ),
+            result_date=request.data.get(
+                'result_date'
+            )
+        )
 
             create_audit_log(
                 user=request.user,
@@ -3468,6 +4127,32 @@ def admission_list_create(request):
         room_id = request.data.get('room')
 
         bed_id = request.data.get('bed')
+
+        # --------------------------------
+        # Prevent past admission dates
+        # --------------------------------
+
+        if admission_date:
+            try:
+                admission_date_obj = timezone.datetime.strptime(
+                    admission_date,
+                    '%Y-%m-%d'
+                ).date()
+            except (ValueError, TypeError):
+                return Response(
+                    {
+                        'error': 'Invalid admission date format. Use YYYY-MM-DD.'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            if admission_date_obj < timezone.localdate():
+                return Response(
+                    {
+                        'error': 'Admission date cannot be in the past.'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
         if not patient_id:
 
@@ -4247,7 +4932,7 @@ def room_list_create(request):
         )
 
 
-@api_view(['GET', 'PUT', 'PATCH'])
+@api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
 @permission_classes([IsAuthenticated])
 def room_detail(request, pk):
 
@@ -4280,45 +4965,178 @@ def room_detail(request, pk):
         )
 
     # --------------------------------
-    # PUT / PATCH
+    # ADMIN / RECEPTIONIST PERMISSION
     # --------------------------------
 
     if request.user.role not in [
         User.Role.ADMIN,
         User.Role.RECEPTIONIST
     ]:
+
         return Response(
             {
                 'error':
-                'You do not have permission to update rooms.'
+                'You do not have permission to modify rooms.'
             },
             status=status.HTTP_403_FORBIDDEN
         )
 
-    # --------------------------------
-    # Protected fields
-    # --------------------------------
+    # =================================
+    # DELETE ROOM
+    # =================================
 
-    protected_fields = [
-        'room_number',
-        'department'
-    ]
+    if request.method == 'DELETE':
 
-    for field in protected_fields:
+        # --------------------------------
+        # PREVENT DELETING ROOM WITH BEDS
+        # --------------------------------
 
-        if field in request.data:
+        if room.beds.exists():
+
             return Response(
                 {
                     'error':
-                    f'{field} cannot be changed after room creation.'
+                    'Cannot delete this room because it contains beds. Delete the beds first.'
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        # --------------------------------
+        # PREVENT DELETING ASSIGNED
+        # CONSULTATION ROOM
+        # --------------------------------
+
+        if hasattr(room, 'assigned_doctor'):
+
+            doctor = room.assigned_doctor
+
+            return Response(
+                {
+                    'error':
+                    f'Cannot delete this consultation room because it is assigned to doctor {doctor.doctor_id}. Unassign the room from the doctor first.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # --------------------------------
+        # DELETE
+        # --------------------------------
+
+        room.delete()
+
+        return Response(
+            {
+                'message':
+                'Room deleted successfully.'
+            },
+            status=status.HTTP_200_OK
+        )
+
+    # =================================
+    # UPDATE ROOM
+    # =================================
+
+    # --------------------------------
+    # Department cannot change
+    # --------------------------------
+
+    if 'department' in request.data:
+
+        return Response(
+            {
+                'error':
+                'Room department cannot be changed after room creation.'
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # --------------------------------
+    # Room number
+    # --------------------------------
+
+    new_room_number = request.data.get(
+        'room_number',
+        room.room_number
+    )
+
+    if not new_room_number or not str(
+        new_room_number
+    ).strip():
+
+        return Response(
+            {
+                'error':
+                'Room number cannot be empty.'
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    new_room_number = str(
+        new_room_number
+    ).strip()
+
+    # --------------------------------
+    # Prevent duplicate room number
+    # --------------------------------
+
+    duplicate_room = Room.objects.filter(
+        room_number=new_room_number
+    ).exclude(
+        id=room.id
+    ).exists()
+
+    if duplicate_room:
+
+        return Response(
+            {
+                'error':
+                'A room with this room number already exists.'
+            },
+            status=status.HTTP_409_CONFLICT
+        )
+
+    # --------------------------------
+    # Consultation room protection
+    # --------------------------------
+
+    new_room_type = request.data.get(
+        'room_type',
+        room.room_type
+    )
+
+    if (
+        room.room_type ==
+        Room.RoomType.CONSULTATION
+        and new_room_type !=
+        Room.RoomType.CONSULTATION
+    ):
+
+        if hasattr(room, 'assigned_doctor'):
+
+            return Response(
+                {
+                    'error':
+                    'Cannot change this consultation room to another room type because it is assigned to a doctor.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    # --------------------------------
+    # UPDATE
+    # --------------------------------
+
+    data = request.data.copy()
+
+    data['room_number'] = (
+        new_room_number
+    )
+
     serializer = RoomSerializer(
         room,
-        data=request.data,
-        partial=(request.method == 'PATCH')
+        data=data,
+        partial=(
+            request.method == 'PATCH'
+        )
     )
 
     if serializer.is_valid():
@@ -4427,6 +5245,21 @@ def bed_list_create(request):
             )
 
         # --------------------------------
+        # Consultation rooms cannot
+        # contain beds
+        # --------------------------------
+
+        if room.room_type == Room.RoomType.CONSULTATION:
+
+            return Response(
+                {
+                    'error':
+                    'Consultation rooms cannot contain beds.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # --------------------------------
         # Room must be active
         # --------------------------------
 
@@ -4490,7 +5323,7 @@ def bed_list_create(request):
 
 
 
-@api_view(['GET', 'PUT', 'PATCH'])
+@api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
 @permission_classes([IsAuthenticated])
 def bed_detail(request, pk):
 
@@ -4521,6 +5354,47 @@ def bed_detail(request, pk):
         )
 
     # --------------------------------
+    # DELETE
+    # --------------------------------
+
+    if request.method == 'DELETE':
+
+        # Only Admin and Receptionist can delete beds
+        if request.user.role not in [
+            User.Role.ADMIN,
+            User.Role.RECEPTIONIST
+        ]:
+
+            return Response(
+                {
+                    'error':
+                    'You do not have permission to delete beds.'
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Do not allow deletion of an occupied bed
+        if bed.status == Bed.Status.OCCUPIED:
+
+            return Response(
+                {
+                    'error':
+                    'Cannot delete an occupied bed.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        bed.delete()
+
+        return Response(
+            {
+                'message':
+                'Bed deleted successfully.'
+            },
+            status=status.HTTP_204_NO_CONTENT
+        )
+
+    # --------------------------------
     # UPDATE PERMISSION
     # --------------------------------
 
@@ -4542,9 +5416,10 @@ def bed_detail(request, pk):
     # Protected fields
     # --------------------------------
 
+    # Room cannot be changed after bed creation.
+    # Bed number CAN be changed.
     protected_fields = [
-        'room',
-        'bed_number'
+        'room'
     ]
 
     for field in protected_fields:
@@ -4557,6 +5432,44 @@ def bed_detail(request, pk):
                     f'{field} cannot be changed after bed creation.'
                 },
                 status=status.HTTP_400_BAD_REQUEST
+            )
+
+    # --------------------------------
+    # Bed number validation
+    # --------------------------------
+
+    if 'bed_number' in request.data:
+
+        new_bed_number = str(
+            request.data.get('bed_number')
+        ).strip()
+
+        if not new_bed_number:
+
+            return Response(
+                {
+                    'error':
+                    'Bed number cannot be empty.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Check duplicate bed number inside the same room
+        duplicate_bed = Bed.objects.filter(
+            room=bed.room,
+            bed_number=new_bed_number
+        ).exclude(
+            id=bed.id
+        ).first()
+
+        if duplicate_bed:
+
+            return Response(
+                {
+                    'error':
+                    'This bed number already exists in this room.'
+                },
+                status=status.HTTP_409_CONFLICT
             )
 
     # --------------------------------
@@ -4602,7 +5515,7 @@ def bed_detail(request, pk):
         )
 
     # --------------------------------
-    # Update
+    # UPDATE
     # --------------------------------
 
     serializer = BedSerializer(
@@ -4654,5 +5567,381 @@ def audit_log_list(request):
 
     return Response(
         serializer.data,
+        status=status.HTTP_200_OK
+    )
+
+
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def admin_user_list(request):
+
+    # Only Admin can access this API
+    if request.user.role != User.Role.ADMIN:
+        return Response(
+            {'detail': 'Only Admin can manage users.'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    users = User.objects.all().order_by('id')
+    serializer = AdminUserUpdateSerializer(users, many=True)
+
+    return Response(serializer.data)
+
+
+@api_view(['GET', 'PUT', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def admin_user_detail(request, pk):
+
+    # Only Admin can access this API
+    if request.user.role != User.Role.ADMIN:
+        return Response(
+            {'detail': 'Only Admin can manage users.'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    try:
+        user = User.objects.get(pk=pk)
+    except User.DoesNotExist:
+        return Response(
+            {'detail': 'User not found.'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    # Admin cannot delete their own account
+    if request.method == 'DELETE':
+        if user.id == request.user.id:
+            return Response(
+                {'detail': 'You cannot delete your own account.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user.delete()
+
+        return Response(
+            {'detail': 'User deleted successfully.'},
+            status=status.HTTP_200_OK
+        )
+
+    # GET user details
+    if request.method == 'GET':
+        serializer = AdminUserUpdateSerializer(user)
+        return Response(serializer.data)
+
+    # PUT update user
+    serializer = AdminUserUpdateSerializer(
+        user,
+        data=request.data
+    )
+
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data)
+
+    return Response(
+        serializer.errors,
+        status=status.HTTP_400_BAD_REQUEST
+    )
+
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def receptionist_list_create(request):
+
+    # --------------------------------
+    # GET
+    # --------------------------------
+
+    if request.method == 'GET':
+
+        # Only Admin can view receptionists
+        if request.user.role != User.Role.ADMIN:
+            return Response(
+                {
+                    'error':
+                    'Only Admin can access receptionists.'
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        receptionists = ReceptionistProfile.objects.select_related(
+            'user'
+        ).all().order_by('id')
+
+        serializer = ReceptionistSerializer(
+            receptionists,
+            many=True
+        )
+
+        return Response(
+            serializer.data,
+            status=status.HTTP_200_OK
+        )
+
+    # --------------------------------
+    # POST
+    # --------------------------------
+
+    if request.method == 'POST':
+
+        # Only Admin can create receptionists
+        if request.user.role != User.Role.ADMIN:
+            return Response(
+                {
+                    'error':
+                    'Only Admin can create receptionists.'
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        data = request.data.copy()
+
+        # --------------------------------
+        # Required fields
+        # --------------------------------
+
+        username = data.get('username')
+        password = data.get('password')
+        first_name = data.get('first_name')
+        last_name = data.get('last_name')
+        email = data.get('email', '')
+        mobile_number = data.get('mobile_number', '')
+        aadhaar_number = data.get('aadhaar_number')
+
+        if not username:
+            return Response(
+                {
+                    'error': 'Username is required.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not password:
+            return Response(
+                {
+                    'error': 'Password is required.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not first_name:
+            return Response(
+                {
+                    'error': 'First name is required.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not last_name:
+            return Response(
+                {
+                    'error': 'Last name is required.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not aadhaar_number:
+            return Response(
+                {
+                    'error': 'Aadhaar number is required.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # --------------------------------
+        # Validate username
+        # --------------------------------
+
+        if User.objects.filter(
+            username=username
+        ).exists():
+
+            return Response(
+                {
+                    'error':
+                    'This username is already registered.'
+                },
+                status=status.HTTP_409_CONFLICT
+            )
+
+        # --------------------------------
+        # Validate Aadhaar
+        # --------------------------------
+
+        if User.objects.filter(
+            aadhaar_number=aadhaar_number
+        ).exists():
+
+            return Response(
+                {
+                    'error':
+                    'This Aadhaar number is already registered.'
+                },
+                status=status.HTTP_409_CONFLICT
+            )
+
+        # --------------------------------
+        # Create User + ReceptionistProfile
+        # --------------------------------
+
+        with transaction.atomic():
+
+            user = User(
+                username=username,
+                first_name=first_name,
+                last_name=last_name,
+                email=email,
+                mobile_number=mobile_number,
+                aadhaar_number=aadhaar_number,
+                role=User.Role.RECEPTIONIST
+            )
+
+            user.set_password(password)
+            user.save()
+
+            receptionist = ReceptionistProfile.objects.create(
+                user=user
+            )
+
+        return Response(
+            ReceptionistSerializer(
+                receptionist
+            ).data,
+            status=status.HTTP_201_CREATED
+        )
+
+
+@api_view(['PUT'])
+@permission_classes([IsAuthenticated])
+def receptionist_update(request, pk):
+
+    # Only Admin can update receptionists
+    if request.user.role != User.Role.ADMIN:
+        return Response(
+            {
+                'error':
+                'Only Admin can update receptionists.'
+            },
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    try:
+        receptionist = ReceptionistProfile.objects.select_related(
+            'user'
+        ).get(pk=pk)
+    except ReceptionistProfile.DoesNotExist:
+        return Response(
+            {
+                'error':
+                'Receptionist not found.'
+            },
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    user = receptionist.user
+    data = request.data
+
+    username = data.get('username')
+    first_name = data.get('first_name')
+    last_name = data.get('last_name')
+    email = data.get('email')
+    mobile_number = data.get('mobile_number')
+    aadhaar_number = data.get('aadhaar_number')
+    password = data.get('password')
+
+    if username is not None:
+        if User.objects.filter(
+            username=username
+        ).exclude(id=user.id).exists():
+            return Response(
+                {
+                    'error':
+                    'This username is already registered.'
+                },
+                status=status.HTTP_409_CONFLICT
+            )
+
+        user.username = username
+
+    if first_name is not None:
+        user.first_name = first_name
+
+    if last_name is not None:
+        user.last_name = last_name
+
+    if email is not None:
+        user.email = email
+
+    if mobile_number is not None:
+        user.mobile_number = mobile_number
+
+    if aadhaar_number is not None:
+        if User.objects.filter(
+            aadhaar_number=aadhaar_number
+        ).exclude(id=user.id).exists():
+            return Response(
+                {
+                    'error':
+                    'This Aadhaar number is already registered.'
+                },
+                status=status.HTTP_409_CONFLICT
+            )
+
+        user.aadhaar_number = aadhaar_number
+
+    # Password is optional during update
+    if password:
+        user.set_password(password)
+
+    with transaction.atomic():
+        user.save()
+
+    return Response(
+        ReceptionistSerializer(receptionist).data,
+        status=status.HTTP_200_OK
+    )
+
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def receptionist_delete(request, pk):
+
+    # Only Admin can delete receptionists
+    if request.user.role != User.Role.ADMIN:
+        return Response(
+            {
+                'error':
+                'Only Admin can delete receptionists.'
+            },
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    try:
+        receptionist = ReceptionistProfile.objects.select_related(
+            'user'
+        ).get(pk=pk)
+    except ReceptionistProfile.DoesNotExist:
+        return Response(
+            {
+                'error':
+                'Receptionist not found.'
+            },
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    user = receptionist.user
+
+    with transaction.atomic():
+        receptionist.delete()
+        user.delete()
+
+    return Response(
+        {
+            'message':
+            'Receptionist deleted successfully.'
+        },
         status=status.HTTP_200_OK
     )

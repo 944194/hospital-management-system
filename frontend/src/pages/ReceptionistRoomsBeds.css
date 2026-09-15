@@ -1,0 +1,877 @@
+/* ============================================================
+   RECEPTIONIST ROOMS & BEDS PAGE
+   ============================================================ */
+
+.receptionist-rooms-beds-page {
+  min-height: 100vh;
+  padding: 28px;
+  background: #f5f3ff;
+  color: #1f2937;
+}
+
+
+/* ============================================================
+   HEADER
+   ============================================================ */
+
+.receptionist-rooms-beds-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.receptionist-rooms-beds-eyebrow {
+  margin: 0 0 6px;
+  color: #7c3aed;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+}
+
+.receptionist-rooms-beds-header h1 {
+  margin: 0;
+  color: #312e81;
+  font-size: 30px;
+  font-weight: 800;
+}
+
+.receptionist-rooms-beds-subtitle {
+  margin: 7px 0 0;
+  color: #6b7280;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+
+/* ============================================================
+   SUMMARY
+   ============================================================ */
+
+.receptionist-rooms-beds-summary {
+  display: flex;
+  align-items: stretch;
+  background: #ffffff;
+  border: 1px solid #ddd6fe;
+  border-radius: 13px;
+  overflow: hidden;
+  box-shadow: 0 4px 15px rgba(76, 29, 149, 0.05);
+}
+
+.receptionist-rooms-beds-summary > div {
+  min-width: 105px;
+  padding: 11px 15px;
+  text-align: center;
+  border-right: 1px solid #ede9fe;
+}
+
+.receptionist-rooms-beds-summary > div:last-child {
+  border-right: none;
+}
+
+.receptionist-rooms-beds-summary span {
+  display: block;
+  margin-bottom: 3px;
+  color: #8a8fa3;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.receptionist-rooms-beds-summary strong {
+  color: #6d28d9;
+  font-size: 19px;
+  font-weight: 800;
+}
+
+
+/* ============================================================
+   SUCCESS / ERROR
+   ============================================================ */
+
+.receptionist-rooms-beds-success,
+.receptionist-rooms-beds-error {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+  padding: 12px 15px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.receptionist-rooms-beds-success {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #047857;
+}
+
+.receptionist-rooms-beds-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+}
+
+.receptionist-rooms-beds-success span,
+.receptionist-rooms-beds-error span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 21px;
+  height: 21px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  font-weight: 800;
+}
+
+.receptionist-rooms-beds-success span {
+  background: #d1fae5;
+}
+
+.receptionist-rooms-beds-error span {
+  background: #fee2e2;
+}
+
+
+/* ============================================================
+   SECTION
+   ============================================================ */
+
+.receptionist-rooms-beds-section {
+  margin-bottom: 24px;
+  background: #ffffff;
+  border: 1px solid #ddd6fe;
+  border-radius: 15px;
+  overflow: hidden;
+  box-shadow: 0 5px 18px rgba(76, 29, 149, 0.05);
+}
+
+.receptionist-rooms-beds-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  padding: 18px 20px;
+  border-bottom: 1px solid #ede9fe;
+}
+
+.receptionist-rooms-beds-section-header h2 {
+  margin: 0;
+  color: #312e81;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.receptionist-rooms-beds-section-header p {
+  margin: 4px 0 0;
+  color: #8a8fa3;
+  font-size: 11px;
+}
+
+.receptionist-rooms-beds-section-count {
+  display: inline-flex;
+  align-items: center;
+  min-height: 27px;
+  padding: 0 10px;
+  border-radius: 20px;
+  background: #ede9fe;
+  color: #6d28d9;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+
+/* ============================================================
+   TABLE WRAPPER
+   ============================================================ */
+
+.receptionist-rooms-beds-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+
+/* ============================================================
+   TABLE
+   ============================================================ */
+
+.receptionist-rooms-beds-table {
+  width: 100%;
+  min-width: 850px;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.receptionist-rooms-beds-table th {
+  padding: 11px 15px;
+  background: #faf9ff;
+  border-bottom: 1px solid #e5e7eb;
+  color: #6b7280;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.45px;
+  white-space: nowrap;
+}
+
+.receptionist-rooms-beds-table td {
+  padding: 13px 15px;
+  border-bottom: 1px solid #f0eff7;
+  color: #4b5563;
+  font-size: 12px;
+  vertical-align: middle;
+}
+
+.receptionist-rooms-beds-table tbody tr {
+  transition: background 0.15s ease;
+}
+
+.receptionist-rooms-beds-table tbody tr:hover {
+  background: #faf9ff;
+}
+
+.receptionist-rooms-beds-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+
+/* ============================================================
+   ROOM NUMBER
+   ============================================================ */
+
+.receptionist-room-number {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.receptionist-room-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 9px;
+  background: linear-gradient(
+    135deg,
+    #ede9fe,
+    #e0e7ff
+  );
+  color: #6d28d9;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.receptionist-room-number > div:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.receptionist-room-number strong {
+  color: #374151;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.receptionist-room-number span {
+  color: #9ca3af;
+  font-size: 9px;
+}
+
+
+/* ============================================================
+   ROOM TYPE
+   ============================================================ */
+
+.receptionist-room-type {
+  display: inline-block;
+  padding: 5px 8px;
+  border-radius: 7px;
+  background: #f5f3ff;
+  color: #6d28d9;
+  font-size: 10px;
+  font-weight: 750;
+}
+
+
+/* ============================================================
+   DEPARTMENT
+   ============================================================ */
+
+.receptionist-room-department {
+  color: #4b5563;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+
+/* ============================================================
+   ROOM STATUS
+   ============================================================ */
+
+.receptionist-room-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 67px;
+  padding: 5px 9px;
+  border-radius: 20px;
+  font-size: 9px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.receptionist-room-status.active {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.receptionist-room-status.inactive {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.receptionist-room-status.default {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+
+/* ============================================================
+   BED COUNT
+   ============================================================ */
+
+.receptionist-room-bed-count {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.receptionist-room-bed-count strong {
+  color: #3730a3;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.receptionist-room-bed-count span {
+  color: #9ca3af;
+  font-size: 9px;
+}
+
+
+/* ============================================================
+   BED ROOM
+   ============================================================ */
+
+.receptionist-bed-room strong {
+  color: #4338ca;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+
+/* ============================================================
+   BED NUMBER
+   ============================================================ */
+
+.receptionist-bed-number {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.receptionist-bed-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 29px;
+  height: 29px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  background: #ede9fe;
+  color: #7c3aed;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.receptionist-bed-number strong {
+  color: #374151;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+
+/* ============================================================
+   BED STATUS
+   ============================================================ */
+
+.receptionist-bed-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 84px;
+  padding: 5px 9px;
+  border-radius: 20px;
+  font-size: 9px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.receptionist-bed-status.available {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.receptionist-bed-status.occupied {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.receptionist-bed-status.maintenance {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.receptionist-bed-status.default {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+
+/* ============================================================
+   EDIT BUTTON
+   ============================================================ */
+
+.receptionist-rooms-beds-edit-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid #ddd6fe;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #6d28d9;
+  font-size: 10px;
+  font-weight: 750;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.receptionist-rooms-beds-edit-btn:hover {
+  border-color: #8b5cf6;
+  background: #f5f3ff;
+  transform: translateY(-1px);
+}
+
+.receptionist-rooms-beds-edit-btn span {
+  font-size: 12px;
+}
+
+
+/* ============================================================
+   EDIT FORM CARD
+   ============================================================ */
+
+.receptionist-rooms-beds-form-card {
+  margin-bottom: 24px;
+  padding: 23px;
+  background: #ffffff;
+  border: 1px solid #ddd6fe;
+  border-radius: 15px;
+  box-shadow: 0 5px 18px rgba(76, 29, 149, 0.06);
+}
+
+.receptionist-rooms-beds-form-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.receptionist-rooms-beds-section-eyebrow {
+  margin: 0 0 5px;
+  color: #8b5cf6;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.3px;
+}
+
+.receptionist-rooms-beds-form-header h2 {
+  margin: 0;
+  color: #312e81;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.receptionist-rooms-beds-close-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #6b7280;
+  font-size: 21px;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.receptionist-rooms-beds-close-btn:hover {
+  border-color: #c4b5fd;
+  background: #f5f3ff;
+  color: #6d28d9;
+}
+
+
+/* ============================================================
+   FORM INFO
+   ============================================================ */
+
+.receptionist-rooms-beds-info-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 14px;
+  border: 1px solid #ddd6fe;
+  border-radius: 11px;
+  background: #faf9ff;
+}
+
+.receptionist-rooms-beds-info-grid > div {
+  min-width: 0;
+  padding-right: 12px;
+  border-right: 1px solid #e9e5ff;
+}
+
+.receptionist-rooms-beds-info-grid > div:last-child {
+  border-right: none;
+}
+
+.receptionist-rooms-beds-info-grid span {
+  display: block;
+  margin-bottom: 4px;
+  color: #8a8fa3;
+  font-size: 9px;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.receptionist-rooms-beds-info-grid strong {
+  display: block;
+  overflow: hidden;
+  color: #3730a3;
+  font-size: 12px;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+
+/* ============================================================
+   FORM GRID
+   ============================================================ */
+
+.receptionist-rooms-beds-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.receptionist-rooms-beds-form-group {
+  min-width: 0;
+}
+
+.receptionist-rooms-beds-form-group label {
+  display: block;
+  margin-bottom: 7px;
+  color: #374151;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.receptionist-rooms-beds-form-group input,
+.receptionist-rooms-beds-form-group select {
+  width: 100%;
+  height: 42px;
+  box-sizing: border-box;
+  padding: 0 12px;
+  border: 1px solid #ddd6fe;
+  border-radius: 9px;
+  outline: none;
+  background: #faf9ff;
+  color: #1f2937;
+  font-family: inherit;
+  font-size: 13px;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
+}
+
+.receptionist-rooms-beds-form-group input:focus,
+.receptionist-rooms-beds-form-group select:focus {
+  border-color: #8b5cf6;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+}
+
+.receptionist-rooms-beds-form-group input:disabled {
+  background: #f3f4f6;
+  color: #6b7280;
+  cursor: not-allowed;
+}
+
+
+/* ============================================================
+   FORM ACTIONS
+   ============================================================ */
+
+.receptionist-rooms-beds-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid #ede9fe;
+}
+
+.receptionist-rooms-beds-save-btn,
+.receptionist-rooms-beds-cancel-btn {
+  min-height: 40px;
+  padding: 0 17px;
+  border-radius: 9px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.receptionist-rooms-beds-save-btn {
+  border: none;
+  background: linear-gradient(
+    135deg,
+    #7c3aed,
+    #6366f1
+  );
+  color: #ffffff;
+  box-shadow: 0 5px 13px rgba(124, 58, 237, 0.18);
+}
+
+.receptionist-rooms-beds-save-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 7px 17px rgba(124, 58, 237, 0.25);
+}
+
+.receptionist-rooms-beds-cancel-btn {
+  border: 1px solid #ddd6fe;
+  background: #ffffff;
+  color: #6b7280;
+}
+
+.receptionist-rooms-beds-cancel-btn:hover {
+  border-color: #c4b5fd;
+  background: #f5f3ff;
+  color: #6d28d9;
+}
+
+
+/* ============================================================
+   EMPTY STATE
+   ============================================================ */
+
+.receptionist-rooms-beds-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 220px;
+  padding: 30px 20px;
+  text-align: center;
+}
+
+.receptionist-rooms-beds-empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  margin-bottom: 11px;
+  border-radius: 13px;
+  background: #ede9fe;
+  color: #7c3aed;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.receptionist-rooms-beds-empty h3 {
+  margin: 0;
+  color: #3730a3;
+  font-size: 15px;
+  font-weight: 750;
+}
+
+.receptionist-rooms-beds-empty p {
+  margin: 6px 0 0;
+  color: #8a8fa3;
+  font-size: 12px;
+}
+
+
+/* ============================================================
+   LOADING
+   ============================================================ */
+
+.receptionist-rooms-beds-state {
+  display: flex;
+  min-height: 70vh;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 13px;
+  color: #6b7280;
+}
+
+.receptionist-rooms-beds-state p {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.receptionist-rooms-beds-spinner {
+  width: 30px;
+  height: 30px;
+  border: 3px solid #ddd6fe;
+  border-top-color: #7c3aed;
+  border-radius: 50%;
+  animation: receptionistRoomsBedsSpin 0.8s linear infinite;
+}
+
+@keyframes receptionistRoomsBedsSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+
+/* ============================================================
+   RESPONSIVE — TABLET
+   ============================================================ */
+
+@media (max-width: 950px) {
+  .receptionist-rooms-beds-page {
+    padding: 20px;
+  }
+
+  .receptionist-rooms-beds-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .receptionist-rooms-beds-summary {
+    width: 100%;
+  }
+
+  .receptionist-rooms-beds-summary > div {
+    flex: 1;
+  }
+
+  .receptionist-rooms-beds-info-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+
+/* ============================================================
+   RESPONSIVE — MOBILE
+   ============================================================ */
+
+@media (max-width: 600px) {
+  .receptionist-rooms-beds-page {
+    padding: 14px;
+  }
+
+  .receptionist-rooms-beds-header h1 {
+    font-size: 25px;
+  }
+
+  .receptionist-rooms-beds-subtitle {
+    font-size: 12px;
+  }
+
+  .receptionist-rooms-beds-summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    width: 100%;
+  }
+
+  .receptionist-rooms-beds-summary > div {
+    min-width: 0;
+    padding: 10px 5px;
+  }
+
+  .receptionist-rooms-beds-summary span {
+    font-size: 8px;
+  }
+
+  .receptionist-rooms-beds-summary strong {
+    font-size: 17px;
+  }
+
+  .receptionist-rooms-beds-section,
+  .receptionist-rooms-beds-form-card {
+    border-radius: 12px;
+  }
+
+  .receptionist-rooms-beds-form-card {
+    padding: 16px;
+  }
+
+  .receptionist-rooms-beds-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .receptionist-rooms-beds-info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .receptionist-rooms-beds-info-grid > div,
+  .receptionist-rooms-beds-info-grid > div:last-child {
+    padding: 0 0 10px;
+    border-right: none;
+    border-bottom: 1px solid #e9e5ff;
+  }
+
+  .receptionist-rooms-beds-info-grid > div:last-child {
+    padding-bottom: 0;
+    border-bottom: none;
+  }
+
+  .receptionist-rooms-beds-form-actions {
+    flex-direction: column-reverse;
+  }
+
+  .receptionist-rooms-beds-save-btn,
+  .receptionist-rooms-beds-cancel-btn {
+    width: 100%;
+  }
+
+  .receptionist-rooms-beds-section-header {
+    padding: 15px;
+  }
+
+  .receptionist-rooms-beds-section-header h2 {
+    font-size: 15px;
+  }
+}
