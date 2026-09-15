@@ -29,11 +29,11 @@ function MainLayout() {
             {isAdmin && (
               <>
                 <NavLink to="/admin" end>
-                  ▣ Dashboard
+                  ☰ Dashboard
                 </NavLink>
 
                 <NavLink to="/admin/users">
-                  ▣ User Management
+                  👤 User Management
                 </NavLink>
 
                 <NavLink to="/admin/departments">
