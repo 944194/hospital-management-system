@@ -31,9 +31,9 @@ SECRET_KEY = os.environ.get(
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = [
-    'localhost',
-    '127.0.0.1',
-    'hospital-management-system-hggx.onrender.com',
+    "3.109.234.174",
+    "localhost",
+    "127.0.0.1",
 ]
 
 
@@ -156,6 +156,13 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL='/media/'
 MEDIA_ROOT= BASE_DIR / 'media'
 
+CSRF_TRUSTED_ORIGINS = [
+    "https://3.109.234.174",
+]
+
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
 
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration

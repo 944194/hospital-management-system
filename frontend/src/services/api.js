@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "https://hospital-management-system-hggx.onrender.com/api/",
+  baseURL: "https://3.109.234.174/api/",
   headers: {
     "Content-Type": "application/json",
   },
@@ -43,7 +43,7 @@ api.interceptors.response.use(
       if (refreshToken) {
         try {
           const response = await axios.post(
-            "https://hospital-management-system-hggx.onrender.com/api/auth/token/refresh/",
+            "https://3.109.234.174/api/auth/token/refresh/",
             {
               refresh: refreshToken,
             }

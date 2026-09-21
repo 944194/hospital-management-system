@@ -237,6 +237,23 @@ function PatientAppointments() {
     setFormError("");
   };
 
+
+ // ==========================================
+ // GET SELECTED DOCTOR
+ // ==========================================
+
+ const getSelectedDoctor = () => {
+   if (!formData.doctor) {
+     return null;
+   }
+
+   return doctors.find(
+     (doctor) =>
+       String(doctor.id) === String(formData.doctor)
+   );
+ };
+
+
   // ==========================================
   // GET FILTERED DOCTORS
   // department + date +
@@ -1007,6 +1024,70 @@ function PatientAppointments() {
                 )}
 
             </div>
+
+
+	            {/* Doctor Details */}
+
+            {formData.doctor &&
+              getSelectedDoctor() && (
+                <div
+                  style={{
+                    border: "1px solid #ddd",
+                    borderRadius: "10px",
+                    padding: "16px",
+                    marginTop: "15px",
+                    marginBottom: "15px",
+                  }}
+                >
+                  <h3>
+                    Doctor Details
+                  </h3>
+
+                  <p>
+                    <strong>Doctor Name:</strong>{" "}
+                    Dr.{" "}
+                    {getSelectedDoctor().first_name ||
+                      ""}{" "}
+                    {getSelectedDoctor().last_name ||
+                      ""}
+                  </p>
+
+                  <p>
+                    <strong>Specialization:</strong>{" "}
+                    {getSelectedDoctor().specialization ||
+                      "-"}
+                  </p>
+
+                  <p>
+                    <strong>Experience:</strong>{" "}
+                    {getSelectedDoctor()
+                      .experience_years != null
+                      ? `${getSelectedDoctor().experience_years} Years`
+                      : "-"}
+                  </p>
+
+                  <p>
+                    <strong>Department:</strong>{" "}
+                    {getSelectedDoctor()
+                      .department_name || "-"}
+                  </p>
+
+                  <p>
+                    <strong>Qualification:</strong>{" "}
+                    {getSelectedDoctor()
+                      .qualification || "-"}
+                  </p>
+
+                  <p>
+                    <strong>Consultation Fee:</strong>{" "}
+                    ₹
+                    {getSelectedDoctor()
+                      .consultation_fee ?? "-"}
+                  </p>
+                </div>
+              )}
+       	
+
 
             {/* Weekly Availability */}
 

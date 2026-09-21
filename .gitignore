@@ -26,4 +26,5 @@ media/
 
 # OS files
 .DS_Store
-Thumbs.db
+Thumbs.dbrds_before_import.sql
+*.sql
