@@ -14,13 +14,17 @@ function DoctorPrescriptions() {
   const [editingPrescription, setEditingPrescription] = useState(null);
 
   const [formData, setFormData] = useState({
-    medical_record: "",
-    medicine_name: "",
-    dosage: "",
-    frequency: "",
-    duration: "",
-    instructions: "",
-  });
+  medical_record: "",
+  medicines: [
+    {
+      medicine_name: "",
+      dosage: "",
+      frequency: "",
+      duration: "",
+      instructions: "",
+    },
+  ],
+});
 
   // ==========================================
   // SEARCH / FILTER STATES
@@ -54,47 +58,102 @@ function DoctorPrescriptions() {
   // ==========================================
 
   const fetchData = async () => {
-    try {
-      setError("");
+  try {
+    setError("");
 
-      const [
-        prescriptionsResponse,
-        recordsResponse,
-      ] = await Promise.all([
-        api.get("prescriptions/"),
-        api.get("medical-records/"),
-      ]);
+    const [
+      prescriptionsResponse,
+      recordsResponse,
+    ] = await Promise.all([
+      api.get("prescriptions/"),
+      api.get("medical-records/"),
+    ]);
 
-      const prescriptionData =
-        getData(prescriptionsResponse);
+    const prescriptionData =
+      getData(prescriptionsResponse);
 
-      const recordData =
-        getData(recordsResponse);
+    const recordData =
+      getData(recordsResponse);
 
-      const sortedPrescriptions =
-        [...prescriptionData].sort(
-          (a, b) => Number(b.id) - Number(a.id)
-        );
+    // ==========================================
+    // GROUP MEDICINES BY PRESCRIPTION GROUP
+    // ==========================================
 
-      setPrescriptions(sortedPrescriptions);
-      setFilteredPrescriptions(
-        sortedPrescriptions
+    const prescriptionGroups = new Map();
+
+    prescriptionData.forEach(
+      (prescription) => {
+
+        const groupKey =
+          prescription.prescription_group ||
+          prescription.id;
+
+        if (
+          !prescriptionGroups.has(
+            groupKey
+          )
+        ) {
+          prescriptionGroups.set(
+            groupKey,
+            {
+              ...prescription,
+              medicines: [],
+            }
+          );
+        }
+
+        prescriptionGroups
+          .get(groupKey)
+          .medicines
+          .push(prescription);
+      }
+    );
+
+    const groupedPrescriptions =
+      Array.from(
+        prescriptionGroups.values()
       );
 
-      setMedicalRecords(recordData);
-    } catch (err) {
-      console.error(
-        "Prescriptions error:",
-        err
+    // ==========================================
+    // SORT BY LATEST PRESCRIPTION
+    // ==========================================
+
+    const sortedPrescriptions =
+      groupedPrescriptions.sort(
+        (a, b) =>
+          Number(b.id) -
+          Number(a.id)
       );
 
-      setError(
-        "Unable to load prescriptions. Please try again."
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+    setPrescriptions(
+      sortedPrescriptions
+    );
+
+    setFilteredPrescriptions(
+      sortedPrescriptions
+    );
+
+    setMedicalRecords(
+      recordData
+    );
+
+  } catch (err) {
+
+    console.error(
+      "Prescriptions error:",
+      err
+    );
+
+    setError(
+      "Unable to load prescriptions. Please try again."
+    );
+
+  } finally {
+
+    setLoading(false);
+  }
+};
+      
 
   useEffect(() => {
     fetchData();
@@ -248,18 +307,22 @@ function DoctorPrescriptions() {
   // ==========================================
 
   const resetForm = () => {
-    setFormData({
-      medical_record: "",
-      medicine_name: "",
-      dosage: "",
-      frequency: "",
-      duration: "",
-      instructions: "",
-    });
+  setFormData({
+    medical_record: "",
+    medicines: [
+      {
+        medicine_name: "",
+        dosage: "",
+        frequency: "",
+        duration: "",
+        instructions: "",
+      },
+    ],
+  });
 
-    setEditingPrescription(null);
-    setFormError("");
-  };
+  setEditingPrescription(null);
+  setFormError("");
+};
 
   // ==========================================
   // ADD PRESCRIPTION
@@ -275,128 +338,259 @@ function DoctorPrescriptions() {
   // ==========================================
 
   const handleEdit = (prescription) => {
-    setEditingPrescription(prescription);
+  setEditingPrescription(prescription);
 
-    setFormData({
-      medical_record:
-        prescription.medical_record || "",
+  setFormData({
+    medical_record:
+      prescription.medical_record ||
+      prescription.medical_record_id ||
+      "",
 
-      medicine_name:
-        prescription.medicine_name || "",
+    medicines:
+      prescription.medicines?.map((medicine) => ({
+        medicine_name:
+          medicine.medicine_name || "",
 
-      dosage:
-        prescription.dosage || "",
+        dosage:
+          medicine.dosage || "",
 
-      frequency:
-        prescription.frequency || "",
+        frequency:
+          medicine.frequency || "",
 
-      duration:
-        prescription.duration || "",
+        duration:
+          medicine.duration || "",
 
-      instructions:
-        prescription.instructions || "",
-    });
+        instructions:
+          medicine.instructions || "",
+      })) || [
+        {
+          medicine_name: "",
+          dosage: "",
+          frequency: "",
+          duration: "",
+          instructions: "",
+        },
+      ],
+  });
 
-    setFormError("");
-    setShowForm(true);
-  };
+  setFormError("");
+  setShowForm(true);
+};
+      
 
   // ==========================================
   // FORM CHANGE
   // ==========================================
 
   const handleChange = (event) => {
-    setFormData({
-      ...formData,
-      [event.target.name]:
-        event.target.value,
-    });
-  };
+  const { name, value } = event.target;
+
+  setFormData((prev) => ({
+    ...prev,
+    [name]: value,
+  }));
+};
+
+const handleMedicineChange = (index, field, value) => {
+  setFormData((prev) => ({
+    ...prev,
+    medicines: prev.medicines.map((medicine, i) =>
+      i === index
+        ? { ...medicine, [field]: value }
+        : medicine
+    ),
+  }));
+};
 
   // ==========================================
-  // SAVE PRESCRIPTION
-  // ==========================================
+// SAVE PRESCRIPTION
+// ==========================================
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    setFormError("");
+const handleSubmit = async (event) => {
+  event.preventDefault();
+  setFormError("");
 
-    try {
-      if (!formData.medical_record) {
+  try {
+    // --------------------------------
+    // VALIDATE MEDICAL RECORD
+    // --------------------------------
+
+    if (!formData.medical_record) {
+      setFormError(
+        "Please select a medical record."
+      );
+      return;
+    }
+
+    // --------------------------------
+    // VALIDATE MEDICINES
+    // --------------------------------
+
+    if (
+      !formData.medicines ||
+      formData.medicines.length === 0
+    ) {
+      setFormError(
+        "Please add at least one medicine."
+      );
+      return;
+    }
+
+    // --------------------------------
+    // VALIDATE EACH MEDICINE
+    // --------------------------------
+
+    for (
+      let index = 0;
+      index < formData.medicines.length;
+      index++
+    ) {
+      const medicine =
+        formData.medicines[index];
+
+      if (!medicine.medicine_name) {
         setFormError(
-          "Please select a medical record."
+          `Please enter the medicine name for Medicine ${index + 1}.`
         );
         return;
       }
 
-      const payload = {
-        medical_record:
-          formData.medical_record,
-
-        medicine_name:
-          formData.medicine_name,
-
-        dosage:
-          formData.dosage,
-
-        frequency:
-          formData.frequency,
-
-        duration:
-          formData.duration,
-
-        instructions:
-          formData.instructions,
-      };
-
-      if (editingPrescription) {
-        await api.put(
-          `prescriptions/${editingPrescription.id}/`,
-          payload
+      if (!medicine.dosage) {
+        setFormError(
+          `Please enter the dosage for Medicine ${index + 1}.`
         );
-      } else {
-        await api.post(
-          "prescriptions/",
-          payload
-        );
+        return;
       }
 
-      setShowForm(false);
-      resetForm();
-
-      await fetchData();
-    } catch (err) {
-      console.error(
-        "Save prescription error:",
-        err
-      );
-
-      if (err.response?.data) {
-        const errorData =
-          err.response.data;
-
-        if (errorData.error) {
-          setFormError(
-            errorData.error
-          );
-        } else {
-          const messages =
-            Object.values(errorData)
-              .flat()
-              .join(" ");
-
-          setFormError(
-            messages ||
-              "Unable to save prescription."
-          );
-        }
-      } else {
+      if (!medicine.frequency) {
         setFormError(
-          "Unable to save prescription."
+          `Please enter the frequency for Medicine ${index + 1}.`
         );
+        return;
+      }
+
+      if (!medicine.duration) {
+        setFormError(
+          `Please enter the duration for Medicine ${index + 1}.`
+        );
+        return;
       }
     }
-  };
+
+    // --------------------------------
+    // PREPARE PAYLOAD
+    // --------------------------------
+
+    const payload = {
+      medical_record:
+        formData.medical_record,
+
+      medicines:
+        formData.medicines.map(
+          (medicine) => ({
+            medicine_name:
+              medicine.medicine_name,
+
+            dosage:
+              medicine.dosage,
+
+            frequency:
+              medicine.frequency,
+
+            duration:
+              medicine.duration,
+
+            instructions:
+              medicine.instructions || "",
+          })
+        ),
+    };
+
+    // --------------------------------
+    // EDIT EXISTING PRESCRIPTION
+    // --------------------------------
+
+    if (editingPrescription) {
+
+      await api.put(
+        `prescriptions/${editingPrescription.id}/`,
+        payload
+      );
+
+    }
+
+    // --------------------------------
+    // CREATE NEW PRESCRIPTION
+    // --------------------------------
+
+    else {
+
+      await api.post(
+        "prescriptions/",
+        payload
+      );
+
+    }
+
+    // --------------------------------
+    // CLOSE FORM
+    // --------------------------------
+
+    setShowForm(false);
+
+    setEditingPrescription(null);
+
+    resetForm();
+
+    // --------------------------------
+    // REFRESH DATA
+    // --------------------------------
+
+    await fetchData();
+
+  } catch (err) {
+
+    console.error(
+      "Save prescription error:",
+      err
+    );
+
+    if (err.response?.data) {
+
+      const errorData =
+        err.response.data;
+
+      if (errorData.error) {
+
+        setFormError(
+          errorData.error
+        );
+
+      } else {
+
+        const messages =
+          Object.values(errorData)
+            .flat()
+            .join(" ");
+
+        setFormError(
+          messages ||
+          "Unable to save prescription."
+        );
+
+      }
+
+    } else {
+
+      setFormError(
+        "Unable to save prescription."
+      );
+
+    }
+  }
+};
+      
+
 
   // ==========================================
   // CANCEL FORM
@@ -677,111 +871,206 @@ function DoctorPrescriptions() {
 
               </div>
 
-              {/* MEDICINE */}
+              {/* MEDICINES */}
+ 
+{formData.medicines.map((medicine, index) => (
+  <div
+    key={index}
+    style={{
+      position: "relative",
+      border: "1px solid #ddd",
+      borderRadius: "10px",
+      padding: "20px",
+      marginBottom: "20px",
+    }}
+  >
 
-              <div className="doctor-prescriptions-form-group">
+    {/* MEDICINE HEADER */}
 
-                <label>
-                  Medicine Name
-                </label>
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: "15px",
+      }}
+    >
 
-                <input
-                  type="text"
-                  name="medicine_name"
-                  value={
-                    formData.medicine_name
-                  }
-                  onChange={handleChange}
-                  placeholder="Example: Paracetamol"
-                  required
-                />
+      <strong>
+        Medicine {index + 1}
+      </strong>
 
-              </div>
+      {formData.medicines.length > 1 && (
+        <button
+          type="button"
+          onClick={() => {
+            setFormData((prev) => ({
+              ...prev,
+              medicines: prev.medicines.filter(
+                (_, medicineIndex) =>
+                  medicineIndex !== index
+              ),
+            }));
+          }}
+          style={{
+            border: "none",
+            background: "#fee2e2",
+            color: "#dc2626",
+            padding: "6px 12px",
+            borderRadius: "6px",
+            cursor: "pointer",
+            fontWeight: "600",
+          }}
+        >
+          Remove
+        </button>
+      )}
 
-              {/* DOSAGE */}
+    </div>
 
-              <div className="doctor-prescriptions-form-group">
+    {/* MEDICINE */}
 
-                <label>
-                  Dosage
-                </label>
+    <div className="doctor-prescriptions-form-group">
 
-                <input
-                  type="text"
-                  name="dosage"
-                  value={
-                    formData.dosage
-                  }
-                  onChange={handleChange}
-                  placeholder="Example: 500 mg"
-                  required
-                />
+      <label>
+        Medicine Name
+      </label>
 
-              </div>
+      <input
+        type="text"
+        value={medicine.medicine_name}
+        onChange={(event) =>
+          handleMedicineChange(
+            index,
+            "medicine_name",
+            event.target.value
+          )
+        }
+        placeholder="Example: Paracetamol"
+        required
+      />
 
-              {/* FREQUENCY */}
+    </div>
 
-              <div className="doctor-prescriptions-form-group">
+    {/* DOSAGE */}
 
-                <label>
-                  Frequency
-                </label>
+    <div className="doctor-prescriptions-form-group">
 
-                <input
-                  type="text"
-                  name="frequency"
-                  value={
-                    formData.frequency
-                  }
-                  onChange={handleChange}
-                  placeholder="Example: Twice daily"
-                  required
-                />
+      <label>
+        Dosage
+      </label>
 
-              </div>
+      <input
+        type="text"
+        value={medicine.dosage}
+        onChange={(event) =>
+          handleMedicineChange(
+            index,
+            "dosage",
+            event.target.value
+          )
+        }
+        placeholder="Example: 500 mg"
+        required
+      />
 
-              {/* DURATION */}
+    </div>
 
-              <div className="doctor-prescriptions-form-group">
+    {/* FREQUENCY */}
 
-                <label>
-                  Duration
-                </label>
+    <div className="doctor-prescriptions-form-group">
 
-                <input
-                  type="text"
-                  name="duration"
-                  value={
-                    formData.duration
-                  }
-                  onChange={handleChange}
-                  placeholder="Example: 5 days"
-                  required
-                />
+      <label>
+        Frequency
+      </label>
 
-              </div>
+      <input
+        type="text"
+        value={medicine.frequency}
+        onChange={(event) =>
+          handleMedicineChange(
+            index,
+            "frequency",
+            event.target.value
+          )
+        }
+        placeholder="Example: Twice daily"
+        required
+      />
 
-              {/* INSTRUCTIONS */}
+    </div>
 
-              <div className="doctor-prescriptions-form-group full">
+    {/* DURATION */}
 
-                <label>
-                  Instructions
-                </label>
+    <div className="doctor-prescriptions-form-group">
 
-                <textarea
-                  name="instructions"
-                  value={
-                    formData.instructions
-                  }
-                  onChange={handleChange}
-                  rows="4"
-                  placeholder="Example: Take after food"
-                />
+      <label>
+        Duration
+      </label>
 
-              </div>
+      <input
+        type="text"
+        value={medicine.duration}
+        onChange={(event) =>
+          handleMedicineChange(
+            index,
+            "duration",
+            event.target.value
+          )
+        }
+        placeholder="Example: 5 days"
+        required
+      />
 
-            </div>
+    </div>
+
+    {/* INSTRUCTIONS */}
+
+    <div className="doctor-prescriptions-form-group full">
+
+      <label>
+        Instructions
+      </label>
+
+      <textarea
+        value={medicine.instructions}
+        onChange={(event) =>
+          handleMedicineChange(
+            index,
+            "instructions",
+            event.target.value
+          )
+        }
+        rows="4"
+        placeholder="Example: Take after food"
+      />
+
+    </div>
+
+  </div>
+))}
+
+
+<button
+  type="button"
+  onClick={() =>
+    setFormData((prev) => ({
+      ...prev,
+      medicines: [
+        ...prev.medicines,
+        {
+          medicine_name: "",
+          dosage: "",
+          frequency: "",
+          duration: "",
+          instructions: "",
+        },
+      ],
+    }))
+  }
+>
+  + Add Another Medicine
+</button>
 
             <div className="doctor-prescriptions-form-actions">
 
@@ -803,6 +1092,8 @@ function DoctorPrescriptions() {
               </button>
 
             </div>
+          
+          </div>
 
           </form>
 
@@ -1048,159 +1339,238 @@ function DoctorPrescriptions() {
 
               <tbody>
 
-                {filteredPrescriptions.map(
-                  (prescription) => (
+  {filteredPrescriptions.map(
+    (prescription) => (
 
-                    <tr
-                      key={
-                        prescription.id
-                      }
-                    >
+      <tr
+        key={
+          prescription.prescription_group ||
+          prescription.id
+        }
+      >
 
-                      {/* PRESCRIPTION ID */}
+        {/* PRESCRIPTION ID */}
 
-                      <td>
+        <td>
 
-                        <span className="doctor-prescription-id">
-                          {prescription.prescription_id ||
-                            "-"}
-                        </span>
+          <span className="doctor-prescription-id">
+            {prescription.prescription_id ||
+              "-"}
+          </span>
 
-                      </td>
+        </td>
 
-                      {/* PATIENT */}
+        {/* PATIENT */}
 
-                      <td>
+        <td>
 
-                        <div className="doctor-prescription-person">
+          <div className="doctor-prescription-person">
 
-                          <strong>
-                            {prescription.patient_name ||
-                              "-"}
-                          </strong>
+            <strong>
+              {prescription.patient_name ||
+                "-"}
+            </strong>
 
-                          <span>
-                            {prescription.patient_id ||
-                              "-"}
-                          </span>
+            <span>
+              {prescription.patient_id ||
+                "-"}
+            </span>
 
-                        </div>
+          </div>
 
-                      </td>
+        </td>
 
-                      {/* DOCTOR */}
+        {/* DOCTOR */}
 
-                      <td>
+        <td>
 
-                        <div className="doctor-prescription-person">
+          <div className="doctor-prescription-person">
 
-                          <strong>
-                            {prescription.doctor_name ||
-                              "-"}
-                          </strong>
+            <strong>
+              {prescription.doctor_name ||
+                "-"}
+            </strong>
 
-                          <span>
-                            {prescription.doctor_id ||
-                              "-"}
-                          </span>
+            <span>
+              {prescription.doctor_id ||
+                "-"}
+            </span>
 
-                        </div>
+          </div>
 
-                      </td>
+        </td>
 
-                      {/* MEDICATION */}
+        {/* MEDICATIONS */}
 
-                      <td>
+        <td>
 
-                        <div className="doctor-prescription-medicine">
+          <div className="doctor-prescription-medicine">
 
-                          <strong>
-                            {prescription.medicine_name ||
-                              "-"}
-                          </strong>
+            {prescription.medicines?.map(
+              (medicine, index) => (
 
-                          <span>
-                            {prescription.dosage ||
-                              "-"}
-                          </span>
+                <div
+                  key={
+                    medicine.id ||
+                    index
+                  }
+                  style={{
+                    marginBottom:
+                      index <
+                      prescription.medicines.length -
+                        1
+                        ? "12px"
+                        : "0",
+                  }}
+                >
 
-                        </div>
+                  <strong>
+                    {index + 1}.{" "}
+                    {medicine.medicine_name ||
+                      "-"}
+                  </strong>
 
-                      </td>
+                  <span>
+                    {medicine.dosage ||
+                      "-"}
+                  </span>
 
-                      {/* SCHEDULE */}
+                </div>
 
-                      <td>
+              )
+            )}
 
-                        <div className="doctor-prescription-schedule">
+          </div>
 
-                          <span>
-                            <b>
-                              Frequency:
-                            </b>{" "}
-                            {prescription.frequency ||
-                              "-"}
-                          </span>
+        </td>
 
-                          <span>
-                            <b>
-                              Duration:
-                            </b>{" "}
-                            {prescription.duration ||
-                              "-"}
-                          </span>
+        {/* SCHEDULE */}
 
-                        </div>
+        <td>
 
-                      </td>
+          <div className="doctor-prescription-schedule">
 
-                      {/* INSTRUCTIONS */}
+            {prescription.medicines?.map(
+              (medicine, index) => (
 
-                      <td>
+                <div
+                  key={
+                    medicine.id ||
+                    index
+                  }
+                  style={{
+                    marginBottom:
+                      index <
+                      prescription.medicines.length -
+                        1
+                        ? "12px"
+                        : "0",
+                  }}
+                >
 
-                        <div className="doctor-prescription-instructions">
-                          {prescription.instructions ||
-                            "-"}
-                        </div>
+                 <span>
+  <b>
+    Frequency:
+  </b>{" "}
+  {medicine.frequency ||
+    "-"}
+</span>
 
-                      </td>
+<span
+  style={{
+    display: "block",
+    width: "100%",
+    marginTop: "4px",
+  }}
+>
+  <b>
+    Duration:
+  </b>{" "}
+  {medicine.duration ||
+    "-"}
+</span>
 
-                      {/* CREATED */}
+                </div>
 
-                      <td>
+              )
+            )}
 
-                        <span className="doctor-prescription-created">
-                          {formatDate(
-                            prescription.created_at
-                          )}
-                        </span>
+          </div>
 
-                      </td>
+        </td>
 
-                      {/* ACTION */}
+        {/* INSTRUCTIONS */}
 
-                      <td>
+        <td>
 
-                        <button
-                          type="button"
-                          className="doctor-prescription-edit-btn"
-                          onClick={() =>
-                            handleEdit(
-                              prescription
-                            )
-                          }
-                        >
-                          Edit
-                        </button>
+          <div className="doctor-prescription-instructions">
 
-                      </td>
+            {prescription.medicines?.map(
+              (medicine, index) => (
 
-                    </tr>
+                <div
+                  key={
+                    medicine.id ||
+                    index
+                  }
+                  style={{
+                    marginBottom:
+                      index <
+                      prescription.medicines.length -
+                        1
+                        ? "12px"
+                        : "0",
+                  }}
+                >
+                  {medicine.instructions ||
+                    "-"}
+                </div>
 
-                  )
-                )}
+              )
+            )}
 
-              </tbody>
+          </div>
+
+        </td>
+
+        {/* CREATED */}
+
+        <td>
+
+          <span className="doctor-prescription-created">
+            {formatDate(
+              prescription.created_at
+            )}
+          </span>
+
+        </td>
+
+        {/* ACTION */}
+
+        <td>
+
+          <button
+            type="button"
+            className="doctor-prescription-edit-btn"
+            onClick={() =>
+              handleEdit(
+                prescription
+              )
+            }
+          >
+            Edit
+          </button>
+
+        </td>
+
+      </tr>
+
+    )
+  )}
+
+</tbody>    
+
+                      
 
             </table>
 

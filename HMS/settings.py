@@ -49,6 +49,7 @@ INSTALLED_APPS = [
 
     'corsheaders',
     'rest_framework',
+    'channels',
 
     'accounts',
     'departments',
@@ -63,6 +64,7 @@ INSTALLED_APPS = [
     'admissions',
     'rooms',
     'audit_logs',
+    'notifications',
     'receptionists',
 ]
 
@@ -188,3 +190,12 @@ CORS_ALLOWED_ORIGINS = [
     'http://localhost:5173',
     "https://hospital-management-system-1-b901.onrender.com",
 ]
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+           "hosts": [{"host": "127.0.0.1", "port": 6379, "socket_timeout": None}],
+        },
+    },
+}

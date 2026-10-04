@@ -1,4 +1,8 @@
 from django.shortcuts import render
+from django.http import HttpResponse
+
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import A4
 
 # Create your views here.
 
@@ -21,7 +25,7 @@ from patients.models import PatientProfile
 from datetime import date, datetime, timedelta
 from appointments.models import Appointment
 from medical_records.models import MedicalRecord
-from prescriptions.models import Prescription
+from prescriptions.models import Prescription, PrescriptionGroup
 from billing.models import Bill
 from lab_tests.models import LabTest, LabResult
 from admissions.models import Admission
@@ -29,7 +33,9 @@ from rooms.models import Room, Bed
 from audit_logs.models import AuditLog
 from audit_logs.utils import create_audit_log
 from receptionists.models import ReceptionistProfile
-
+from notifications.models import Notification
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 
 
 from .serializers import (
@@ -1272,6 +1278,65 @@ def appointment_list_create(request):
                 appointment_room=doctor.consultation_room
             )
 
+            # --------------------------------
+            # Real-time notifications
+            # --------------------------------
+            
+
+            channel_layer = get_channel_layer()
+
+            notification_message = (
+                f"Appointment with Dr. {doctor.user.get_full_name()} "
+                f"scheduled for {appointment_date.strftime('%d %B %Y')} "
+                f"at {appointment_time.strftime('%I:%M %p')}."
+            )
+
+            # Notify patient
+            if patient.user:
+                patient_notification = Notification.objects.create(
+                    recipient=patient.user,
+                    notification_type=Notification.NotificationType.APPOINTMENT,
+                    title="Appointment Scheduled",
+                    message=notification_message,
+                )
+
+                async_to_sync(channel_layer.group_send)(
+                    f"notifications_{patient.user.id}",
+                    {
+                        "type": "notification_message",
+                        "id": patient_notification.id,
+                        "notification_type": patient_notification.notification_type,
+                        "title": patient_notification.title,
+                        "message": patient_notification.message,
+                    }
+                )
+
+            # Notify doctor
+            if doctor.user:
+                doctor_notification = Notification.objects.create(
+                    recipient=doctor.user,
+                    notification_type=Notification.NotificationType.APPOINTMENT,
+                    title="New Appointment",
+                    message=(
+                        f"New appointment with "
+                        f"{patient.user.get_full_name() if patient.user else patient.patient_id} "
+                        f"scheduled for {appointment_date.strftime('%d %B %Y')} "
+                        f"at {appointment_time.strftime('%I:%M %p')}."
+                    ),
+                )
+
+                async_to_sync(channel_layer.group_send)(
+                    f"notifications_{doctor.user.id}",
+                    {
+                        "type": "notification_message",
+                        "id": doctor_notification.id,
+                        "notification_type": doctor_notification.notification_type,
+                        "title": doctor_notification.title,
+                        "message": doctor_notification.message,
+                    }
+                )
+
+
             return Response(
                 AppointmentSerializer(appointment).data,
                 status=status.HTTP_201_CREATED
@@ -1798,6 +1863,64 @@ def appointment_detail(request, pk):
 
         appointment = serializer.save()
 
+	# ==========================================
+        # PATIENT STATUS NOTIFICATION
+        # ==========================================
+
+        if (
+            new_status != current_status
+            and appointment.patient.user
+            and new_status in [
+                Appointment.Status.CONFIRMED,
+                Appointment.Status.COMPLETED,
+                Appointment.Status.CANCELLED,
+            ]
+        ):
+
+            status_messages = {
+                Appointment.Status.CONFIRMED: (
+                    "Appointment Confirmed",
+                    "Your appointment with "
+                    f"Dr. {doctor.user.get_full_name()} has been confirmed."
+                ),
+                Appointment.Status.COMPLETED: (
+                    "Appointment Completed",
+                    "Your appointment with "
+                    f"Dr. {doctor.user.get_full_name()} has been completed."
+                ),
+                Appointment.Status.CANCELLED: (
+                    "Appointment Cancelled",
+                    "Your appointment with "
+                    f"Dr. {doctor.user.get_full_name()} has been cancelled."
+                ),
+            }
+
+            notification_title, notification_message = (
+                status_messages[new_status]
+            )
+
+            patient_notification = Notification.objects.create(
+                recipient=appointment.patient.user,
+                notification_type=Notification.NotificationType.APPOINTMENT,
+                title=notification_title,
+                message=notification_message,
+            )
+
+            channel_layer = get_channel_layer()
+
+            async_to_sync(channel_layer.group_send)(
+                f"notifications_{appointment.patient.user.id}",
+                {
+                    "type": "notification_message",
+                    "id": patient_notification.id,
+                    "notification_type": (
+                        patient_notification.notification_type
+                    ),
+                    "title": patient_notification.title,
+                    "message": patient_notification.message,
+                }
+            )
+
         # ==========================================
         # ROOM SNAPSHOT LOGIC
         # ==========================================
@@ -2250,7 +2373,8 @@ def prescription_list_create(request):
         prescriptions = Prescription.objects.select_related(
             'medical_record__patient__user',
             'medical_record__doctor__user',
-            'medical_record__appointment'
+            'medical_record__appointment',
+            'prescription_group'
         ).all()
 
         # Doctor → only prescriptions related to their records
@@ -2267,7 +2391,7 @@ def prescription_list_create(request):
                 medical_record__patient__user=request.user
             )
 
-         # Admin → all prescriptions
+        # Admin → all prescriptions
         elif request.user.role == User.Role.ADMIN:
             pass
 
@@ -2300,6 +2424,7 @@ def prescription_list_create(request):
             User.Role.DOCTOR,
             User.Role.ADMIN
         ]:
+
             return Response(
                 {
                     'error':
@@ -2308,49 +2433,180 @@ def prescription_list_create(request):
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        serializer = PrescriptionSerializer(
-            data=request.data
+        medical_record_id = request.data.get(
+            'medical_record'
         )
 
-        if serializer.is_valid():
+        medicines = request.data.get(
+            'medicines'
+        )
 
-            medical_record = serializer.validated_data[
-                'medical_record'
-            ]
+        # --------------------------------
+        # Validate medical record
+        # --------------------------------
 
-            # --------------------------------
-            # Doctor ownership check
-            # --------------------------------
+        if not medical_record_id:
 
-            if request.user.role == User.Role.DOCTOR:
+            return Response(
+                {
+                    'medical_record':
+                    ['This field is required.']
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-                if medical_record.doctor.user_id != request.user.id:
+        # --------------------------------
+        # Validate medicines
+        # --------------------------------
+
+        if not medicines or not isinstance(
+            medicines,
+            list
+        ):
+
+            return Response(
+                {
+                    'medicines':
+                    ['At least one medicine is required.']
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+
+            medical_record = MedicalRecord.objects.get(
+                id=medical_record_id
+            )
+
+        except MedicalRecord.DoesNotExist:
+
+            return Response(
+                {
+                    'medical_record':
+                    ['Medical record not found.']
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # --------------------------------
+        # Doctor ownership check
+        # --------------------------------
+
+        if request.user.role == User.Role.DOCTOR:
+
+            if medical_record.doctor.user_id != request.user.id:
+
+                return Response(
+                    {
+                        'error':
+                        'You can only create prescriptions '
+                        'for your own medical records.'
+                    },
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+        # --------------------------------
+        # Validate every medicine
+        # --------------------------------
+
+        required_fields = [
+            'medicine_name',
+            'dosage',
+            'frequency',
+            'duration'
+        ]
+
+        for medicine in medicines:
+
+            if not isinstance(
+                medicine,
+                dict
+            ):
+
+                return Response(
+                    {
+                        'error':
+                        'Each medicine must be an object.'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            for field in required_fields:
+
+                if not medicine.get(field):
 
                     return Response(
                         {
                             'error':
-                            'You can only create prescriptions '
-                            'for your own medical records.'
+                            f'{field} is required for every medicine.'
                         },
-                        status=status.HTTP_403_FORBIDDEN
+                        status=status.HTTP_400_BAD_REQUEST
                     )
 
-            # --------------------------------
-            # Create prescription
-            # --------------------------------
+        # --------------------------------
+        # Create prescription group
+        # and all medicines together
+        # --------------------------------
 
-            prescription = serializer.save()
+        with transaction.atomic():
 
-            return Response(
-                PrescriptionSerializer(
-                    prescription
-                ).data,
-                status=status.HTTP_201_CREATED
+            prescription_group = (
+                PrescriptionGroup.objects.create(
+                    medical_record=medical_record
+                )
             )
 
+            created_prescriptions = []
+
+            for medicine in medicines:
+
+                prescription = Prescription.objects.create(
+                    prescription_group=prescription_group,
+                    medical_record=medical_record,
+                    medicine_name=medicine.get(
+                        'medicine_name'
+                    ),
+                    dosage=medicine.get(
+                        'dosage'
+                    ),
+                    frequency=medicine.get(
+                        'frequency'
+                    ),
+                    duration=medicine.get(
+                        'duration'
+                    ),
+                    instructions=medicine.get(
+                        'instructions',
+                        ''
+                    )
+                )
+
+                created_prescriptions.append(
+                    prescription
+                )
+
+        # --------------------------------
+        # Return created prescription
+        # --------------------------------
+
         return Response(
-            serializer.errors,
-            status=status.HTTP_400_BAD_REQUEST
+            {
+                'prescription_id':
+                f'PRE{prescription_group.id:04d}',
+
+                'prescription_group':
+                prescription_group.id,
+
+                'medical_record':
+                medical_record.id,
+
+                'medicines':
+                PrescriptionSerializer(
+                    created_prescriptions,
+                    many=True
+                ).data
+            },
+            status=status.HTTP_201_CREATED
         )
 
 
@@ -2358,17 +2614,25 @@ def prescription_list_create(request):
 @permission_classes([IsAuthenticated])
 def prescription_detail(request, pk):
 
+    # --------------------------------
+    # FIND PRESCRIPTION
+    # --------------------------------
+
     try:
+
         prescription = Prescription.objects.select_related(
             'medical_record__patient__user',
             'medical_record__doctor__user',
-            'medical_record__appointment'
+            'medical_record__appointment',
+            'prescription_group'
         ).get(pk=pk)
 
     except Prescription.DoesNotExist:
+
         return Response(
             {
-                'error': 'Prescription not found.'
+                'error':
+                'Prescription not found.'
             },
             status=status.HTTP_404_NOT_FOUND
         )
@@ -2379,10 +2643,10 @@ def prescription_detail(request, pk):
 
     if request.method == 'GET':
 
-        # Patient → only their own prescription
         if request.user.role == User.Role.PATIENT:
 
             if prescription.medical_record.patient.user_id != request.user.id:
+
                 return Response(
                     {
                         'error':
@@ -2391,10 +2655,10 @@ def prescription_detail(request, pk):
                     status=status.HTTP_403_FORBIDDEN
                 )
 
-        # Doctor → only prescriptions from their medical records
         elif request.user.role == User.Role.DOCTOR:
 
             if prescription.medical_record.doctor.user_id != request.user.id:
+
                 return Response(
                     {
                         'error':
@@ -2403,12 +2667,12 @@ def prescription_detail(request, pk):
                     status=status.HTTP_403_FORBIDDEN
                 )
 
-        # Admin → can view everything
         elif request.user.role == User.Role.ADMIN:
+
             pass
 
-        # Receptionist → no access
         else:
+
             return Response(
                 {
                     'error':
@@ -2421,7 +2685,9 @@ def prescription_detail(request, pk):
             prescription
         )
 
-        return Response(serializer.data)
+        return Response(
+            serializer.data
+        )
 
     # --------------------------------
     # PUT
@@ -2429,11 +2695,12 @@ def prescription_detail(request, pk):
 
     elif request.method == 'PUT':
 
-        # Only Admin and Doctor can update
+        # Only Doctor and Admin can update
         if request.user.role not in [
             User.Role.ADMIN,
             User.Role.DOCTOR
         ]:
+
             return Response(
                 {
                     'error':
@@ -2442,38 +2709,232 @@ def prescription_detail(request, pk):
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        # Doctor → only their own medical records
+        # --------------------------------
+        # Doctor ownership check
+        # --------------------------------
+
         if request.user.role == User.Role.DOCTOR:
 
             if prescription.medical_record.doctor.user_id != request.user.id:
+
                 return Response(
                     {
                         'error':
-                        'You can only update prescriptions '
-                        'for your own medical records.'
+                        'You can only update prescriptions for your own medical records.'
                     },
                     status=status.HTTP_403_FORBIDDEN
                 )
 
-        serializer = PrescriptionSerializer(
-            prescription,
-            data=request.data
+        # --------------------------------
+        # Get prescription group
+        # --------------------------------
+
+        prescription_group = (
+            prescription.prescription_group
         )
 
-        if serializer.is_valid():
+        # --------------------------------
+        # Backward compatibility
+        # --------------------------------
 
-            prescription = serializer.save()
+        if prescription_group is None:
 
-            return Response(
-                PrescriptionSerializer(
-                    prescription
-                ).data
+            prescription_group = (
+                PrescriptionGroup.objects.create(
+                    medical_record=prescription.medical_record
+                )
             )
 
-        return Response(
-            serializer.errors,
-            status=status.HTTP_400_BAD_REQUEST
+            prescription.prescription_group = (
+                prescription_group
+            )
+
+            prescription.save(
+                update_fields=[
+                    'prescription_group'
+                ]
+            )
+
+        # --------------------------------
+        # Get medicines
+        # --------------------------------
+
+        medicines = request.data.get(
+            'medicines'
         )
+
+        if not medicines or not isinstance(
+            medicines,
+            list
+        ):
+
+            return Response(
+                {
+                    'medicines':
+                    ['At least one medicine is required.']
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # --------------------------------
+        # Validate every medicine
+        # --------------------------------
+
+        required_fields = [
+            'medicine_name',
+            'dosage',
+            'frequency',
+            'duration'
+        ]
+
+        for medicine in medicines:
+
+            if not isinstance(
+                medicine,
+                dict
+            ):
+
+                return Response(
+                    {
+                        'error':
+                        'Each medicine must be an object.'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            for field in required_fields:
+
+                if not medicine.get(field):
+
+                    return Response(
+                        {
+                            'error':
+                            f'{field} is required for every medicine.'
+                        },
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+        # --------------------------------
+        # Medical record
+        # --------------------------------
+
+        medical_record_id = request.data.get(
+            'medical_record'
+        )
+
+        if medical_record_id:
+
+            try:
+
+                medical_record = MedicalRecord.objects.get(
+                    id=medical_record_id
+                )
+
+            except MedicalRecord.DoesNotExist:
+
+                return Response(
+                    {
+                        'medical_record':
+                        ['Medical record not found.']
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Doctor cannot move prescription
+            # to another doctor's medical record
+            if request.user.role == User.Role.DOCTOR:
+
+                if medical_record.doctor.user_id != request.user.id:
+
+                    return Response(
+                        {
+                            'error':
+                            'You can only use your own medical records.'
+                        },
+                        status=status.HTTP_403_FORBIDDEN
+                    )
+
+        else:
+
+            medical_record = (
+                prescription.medical_record
+            )
+
+        # --------------------------------
+        # Update entire prescription group
+        # --------------------------------
+
+        with transaction.atomic():
+
+            prescription_group.medical_record = (
+                medical_record
+            )
+
+            prescription_group.save(
+                update_fields=[
+                    'medical_record',
+                    'updated_at'
+                ]
+            )
+
+            # Remove existing medicines
+            prescription_group.medicines.all().delete()
+
+            # Create updated medicines
+            created_prescriptions = []
+
+            for medicine in medicines:
+
+                created_prescription = (
+                    Prescription.objects.create(
+                        prescription_group=prescription_group,
+                        medical_record=medical_record,
+                        medicine_name=medicine.get(
+                            'medicine_name'
+                        ),
+                        dosage=medicine.get(
+                            'dosage'
+                        ),
+                        frequency=medicine.get(
+                            'frequency'
+                        ),
+                        duration=medicine.get(
+                            'duration'
+                        ),
+                        instructions=medicine.get(
+                            'instructions',
+                            ''
+                        )
+                    )
+                )
+
+                created_prescriptions.append(
+                    created_prescription
+                )
+
+        # --------------------------------
+        # Return updated group
+        # --------------------------------
+
+        return Response(
+            {
+                'prescription_id':
+                f'PRE{prescription_group.id:04d}',
+
+                'prescription_group':
+                prescription_group.id,
+
+                'medical_record':
+                medical_record.id,
+
+                'medicines':
+                PrescriptionSerializer(
+                    created_prescriptions,
+                    many=True
+                ).data
+            }
+        )
+
 
 
 @api_view(['GET', 'POST'])
@@ -3672,20 +4133,51 @@ def lab_result_list_create(request):
         if serializer.is_valid():
 
             lab_result = LabResult.objects.create(
-            lab_test=lab_test,
-            result=request.data.get('result'),
-            normal_range=request.data.get(
-                'normal_range',
-                ''
-            ),
-            remarks=request.data.get(
-                'remarks',
-                ''
-            ),
-            result_date=request.data.get(
-                'result_date'
+                lab_test=lab_test,
+                result=request.data.get('result'),
+                normal_range=request.data.get(
+                    'normal_range',
+                    ''
+                ),
+                remarks=request.data.get(
+                    'remarks',
+                    ''
+                ),
+                result_date=request.data.get(
+                    'result_date'
+                )
             )
-        )
+
+            # --------------------------------
+            # Real-time lab result notification
+            # --------------------------------
+
+            if lab_test.patient.user:
+
+                result_notification = Notification.objects.create(
+                    recipient=lab_test.patient.user,
+                    notification_type=Notification.NotificationType.LAB,
+                    title="Lab Result Available",
+                    message=(
+                        f"Your {lab_test.test_name} laboratory result "
+                        f"is now available."
+                    ),
+                )
+
+                channel_layer = get_channel_layer()
+
+                async_to_sync(channel_layer.group_send)(
+                    f"notifications_{lab_test.patient.user.id}",
+                    {
+                        "type": "notification_message",
+                        "id": result_notification.id,
+                        "notification_type": (
+                            result_notification.notification_type
+                        ),
+                        "title": result_notification.title,
+                        "message": result_notification.message,
+                    }
+                )
 
             create_audit_log(
                 user=request.user,
@@ -3861,6 +4353,213 @@ def lab_result_detail(request, pk):
             status=status.HTTP_400_BAD_REQUEST
         )
 
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def lab_result_download(request, pk):
+
+    try:
+        lab_result = LabResult.objects.select_related(
+            'lab_test',
+            'lab_test__patient__user',
+            'lab_test__doctor__user'
+        ).get(
+            id=pk
+        )
+
+    except LabResult.DoesNotExist:
+        return Response(
+            {
+                'error': 'Lab result not found.'
+            },
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    # --------------------------------
+    # Patient → own result only
+    # --------------------------------
+
+    if request.user.role == User.Role.PATIENT:
+
+        if lab_result.lab_test.patient.user_id != request.user.id:
+            return Response(
+                {
+                    'error':
+                    'You can only download your own lab results.'
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+    # --------------------------------
+    # Doctor → own patients only
+    # --------------------------------
+
+    elif request.user.role == User.Role.DOCTOR:
+
+        if lab_result.lab_test.doctor.user_id != request.user.id:
+            return Response(
+                {
+                    'error':
+                    'You can only download lab results for your patients.'
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+    # --------------------------------
+    # Receptionist → no access
+    # --------------------------------
+
+    elif request.user.role == User.Role.RECEPTIONIST:
+
+        return Response(
+            {
+                'error':
+                'You do not have permission to download lab results.'
+            },
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    # --------------------------------
+    # Generate PDF
+    # --------------------------------
+
+    response = HttpResponse(
+        content_type='application/pdf'
+    )
+
+    response['Content-Disposition'] = (
+        f'attachment; filename="lab_result_{lab_result.id}.pdf"'
+    )
+
+    pdf = canvas.Canvas(
+        response,
+        pagesize=A4
+    )
+
+    width, height = A4
+
+    y = height - 60
+
+    pdf.setFont(
+        "Helvetica-Bold",
+        18
+    )
+
+    pdf.drawString(
+        50,
+        y,
+        "Hospital Management System"
+    )
+
+    y -= 35
+
+    pdf.setFont(
+        "Helvetica-Bold",
+        15
+    )
+
+    pdf.drawString(
+        50,
+        y,
+        "Laboratory Result"
+    )
+
+    y -= 40
+
+    pdf.setFont(
+        "Helvetica",
+        11
+    )
+
+    details = [
+        ("Lab Result ID", lab_result.id),
+        ("Lab Test ID", lab_result.lab_test.id),
+        ("Patient ID", lab_result.lab_test.patient.patient_id),
+        (
+            "Patient Name",
+            lab_result.lab_test.patient.user.get_full_name()
+        ),
+        (
+            "Doctor",
+            lab_result.lab_test.doctor.user.get_full_name()
+        ),
+        (
+            "Test Name",
+            lab_result.lab_test.test_name
+        ),
+        (
+            "Test Type",
+            lab_result.lab_test.test_type
+        ),
+        (
+            "Test Status",
+            lab_result.lab_test.status
+        ),
+        (
+            "Result",
+            lab_result.result
+        ),
+        (
+            "Normal Range",
+            lab_result.normal_range or "-"
+        ),
+        (
+            "Remarks",
+            lab_result.remarks or "-"
+        ),
+        (
+            "Result Date",
+            lab_result.result_date or "-"
+        ),
+    ]
+
+    for label, value in details:
+
+        pdf.setFont(
+            "Helvetica-Bold",
+            10
+        )
+
+        pdf.drawString(
+            50,
+            y,
+            f"{label}:"
+        )
+
+        pdf.setFont(
+            "Helvetica",
+            10
+        )
+
+        pdf.drawString(
+            180,
+            y,
+            str(value)
+        )
+
+        y -= 25
+
+        if y < 60:
+
+            pdf.showPage()
+
+            y = height - 60
+
+    pdf.setFont(
+        "Helvetica",
+        9
+    )
+
+    pdf.drawString(
+        50,
+        40,
+        "Generated from Hospital Management System"
+    )
+
+    pdf.save()
+
+    return response
 
 
 
@@ -5945,3 +6644,346 @@ def receptionist_delete(request, pk):
         },
         status=status.HTTP_200_OK
     )
+
+
+
+
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def prescription_download(request, pk):
+
+    # --------------------------------
+    # Find prescription
+    # --------------------------------
+
+    try:
+
+        prescription = Prescription.objects.select_related(
+            'medical_record__patient__user',
+            'medical_record__doctor__user',
+            'medical_record__appointment',
+            'prescription_group'
+        ).prefetch_related(
+            'prescription_group__medicines'
+        ).get(
+            id=pk
+        )
+
+    except Prescription.DoesNotExist:
+
+        return Response(
+            {
+                'error':
+                'Prescription not found.'
+            },
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    # --------------------------------
+    # Determine prescription group
+    # --------------------------------
+
+    prescription_group = (
+        prescription.prescription_group
+    )
+
+    if prescription_group:
+
+        medicines = (
+            prescription_group.medicines
+            .select_related(
+                'medical_record'
+            )
+            .all()
+        )
+
+        prescription_id = (
+            f'PRE{prescription_group.id:04d}'
+        )
+
+        medical_record = (
+            prescription_group.medical_record
+        )
+
+    else:
+
+        medicines = [
+            prescription
+        ]
+
+        prescription_id = (
+            prescription.prescription_id
+            if hasattr(
+                prescription,
+                'prescription_id'
+            )
+            else f'PRE{prescription.id:04d}'
+        )
+
+        medical_record = (
+            prescription.medical_record
+        )
+
+    # --------------------------------
+    # Patient → own prescription only
+    # --------------------------------
+
+    if request.user.role == User.Role.PATIENT:
+
+        if medical_record.patient.user_id != request.user.id:
+
+            return Response(
+                {
+                    'error':
+                    'You can only download your own prescriptions.'
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+    # --------------------------------
+    # Doctor → own patients only
+    # --------------------------------
+
+    elif request.user.role == User.Role.DOCTOR:
+
+        if medical_record.doctor.user_id != request.user.id:
+
+            return Response(
+                {
+                    'error':
+                    'You can only download prescriptions for your patients.'
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+    # --------------------------------
+    # Receptionist → no access
+    # --------------------------------
+
+    elif request.user.role == User.Role.RECEPTIONIST:
+
+        return Response(
+            {
+                'error':
+                'You do not have permission to download prescriptions.'
+            },
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    # --------------------------------
+    # Generate PDF
+    # --------------------------------
+
+    response = HttpResponse(
+        content_type='application/pdf'
+    )
+
+    response['Content-Disposition'] = (
+        f'attachment; filename="prescription_{prescription_id}.pdf"'
+    )
+
+    pdf = canvas.Canvas(
+        response,
+        pagesize=A4
+    )
+
+    width, height = A4
+
+    y = height - 60
+
+    # --------------------------------
+    # Header
+    # --------------------------------
+
+    pdf.setFont(
+        "Helvetica-Bold",
+        18
+    )
+
+    pdf.drawString(
+        50,
+        y,
+        "Hospital Management System"
+    )
+
+    y -= 35
+
+    pdf.setFont(
+        "Helvetica-Bold",
+        15
+    )
+
+    pdf.drawString(
+        50,
+        y,
+        "Prescription"
+    )
+
+    y -= 35
+
+    # --------------------------------
+    # Prescription details
+    # --------------------------------
+
+    pdf.setFont(
+        "Helvetica",
+        10
+    )
+
+    details = [
+        (
+            "Prescription ID",
+            prescription_id
+        ),
+        (
+            "Medical Record ID",
+            medical_record.id
+        ),
+        (
+            "Patient ID",
+            medical_record.patient.patient_id
+        ),
+        (
+            "Patient Name",
+            medical_record.patient.user.get_full_name()
+        ),
+        (
+            "Doctor ID",
+            medical_record.doctor.doctor_id
+        ),
+        (
+            "Doctor Name",
+            medical_record.doctor.user.get_full_name()
+        ),
+    ]
+
+    for label, value in details:
+
+        pdf.setFont(
+            "Helvetica-Bold",
+            10
+        )
+
+        pdf.drawString(
+            50,
+            y,
+            f"{label}:"
+        )
+
+        pdf.setFont(
+            "Helvetica",
+            10
+        )
+
+        pdf.drawString(
+            180,
+            y,
+            str(value)
+        )
+
+        y -= 22
+
+    # --------------------------------
+    # Medicines heading
+    # --------------------------------
+
+    y -= 10
+
+    pdf.setFont(
+        "Helvetica-Bold",
+        13
+    )
+
+    pdf.drawString(
+        50,
+        y,
+        "Medicines"
+    )
+
+    y -= 25
+
+    # --------------------------------
+    # Medicines
+    # --------------------------------
+
+    for index, medicine in enumerate(
+        medicines,
+        start=1
+    ):
+
+        pdf.setFont(
+            "Helvetica-Bold",
+            11
+        )
+
+        pdf.drawString(
+            50,
+            y,
+            f"{index}. {medicine.medicine_name}"
+        )
+
+        y -= 18
+
+        pdf.setFont(
+            "Helvetica",
+            10
+        )
+
+        pdf.drawString(
+            70,
+            y,
+            f"Dosage: {medicine.dosage}"
+        )
+
+        y -= 18
+
+        pdf.drawString(
+            70,
+            y,
+            f"Frequency: {medicine.frequency}"
+        )
+
+        y -= 18
+
+        pdf.drawString(
+            70,
+            y,
+            f"Duration: {medicine.duration}"
+        )
+
+        y -= 18
+
+        pdf.drawString(
+            70,
+            y,
+            f"Instructions: {medicine.instructions or '-'}"
+        )
+
+        y -= 28
+
+        if y < 80:
+
+            pdf.showPage()
+
+            y = height - 60
+
+    # --------------------------------
+    # Footer
+    # --------------------------------
+
+    pdf.setFont(
+        "Helvetica",
+        9
+    )
+
+    pdf.drawString(
+        50,
+        40,
+        "Generated from Hospital Management System"
+    )
+
+    pdf.save()
+
+    return response

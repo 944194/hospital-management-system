@@ -1,10 +1,84 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
+import api from "../services/api";
 
 function MainLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, logout } = useAuth();
+
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showNotifications, setShowNotifications] = useState(false);
+   useEffect(() => {
+    if (!user) return;
+
+    const fetchNotifications = async () => {
+    try {
+      const response = await api.get("notifications/");
+
+      setNotifications(response.data);
+
+      const unread = response.data.filter(
+        (notification) => !notification.is_read
+      ).length;
+
+      setUnreadCount(unread);
+    } catch (error) {
+      console.error("Failed to fetch notifications:", error);
+    }
+  };
+
+  fetchNotifications();
+}, [user]);
+
+// EXISTING WEBSOCKET CODE
+useEffect(() => {
+  if (!user) return;
+
+    const token = localStorage.getItem("accessToken");
+    if (!token) return;
+
+    const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const wsUrl = `${wsProtocol}//${window.location.host}/ws/notifications/?token=${encodeURIComponent(token)}`;
+
+    const socket = new WebSocket(wsUrl);
+
+    socket.onopen = () => {
+      console.log("✅ PRODUCTION WEBSOCKET CONNECTED");
+    };
+
+    socket.onmessage = (event) => {
+  const newNotification = JSON.parse(event.data);
+
+  console.log("🔔 NOTIFICATION:", newNotification);
+
+  const notification = {
+    ...newNotification,
+    is_read: false,
+    created_at: new Date().toISOString(),
+  };
+
+  setNotifications((prev) => [
+    notification,
+    ...prev,
+  ]);
+
+  setUnreadCount((prev) => prev + 1);
+};
+
+    socket.onerror = (error) => {
+      console.error("🔴 WEBSOCKET ERROR:", error);
+    };
+
+    socket.onclose = (event) => {
+      console.log("🔴 WEBSOCKET CLOSED:", event.code);
+    };
+
+    return () => {
+      socket.close();
+    };
+  }, [user]);
 
   const isAdmin = user?.role === "ADMIN";
   const isDoctor = user?.role === "DOCTOR";
@@ -231,6 +305,103 @@ function MainLayout() {
           </div>
 
           <div className="user-area">
+	   <button className="notification-button"
+   onClick={async () => {
+  setShowNotifications(!showNotifications);
+
+  if (unreadCount > 0) {
+    try {
+      await Promise.all(
+        notifications
+          .filter((notification) => !notification.is_read)
+          .map((notification) =>
+            api.patch(
+              `notifications/${notification.id}/read/`
+            )
+          )
+      );
+
+      setNotifications((prev) =>
+        prev.map((notification) => ({
+          ...notification,
+          is_read: true,
+        }))
+      );
+
+      setUnreadCount(0);
+    } catch (error) {
+      console.error(
+        "Failed to mark notifications as read:",
+        error
+      );
+    }
+  }
+}}
+>
+  🔔
+
+  {unreadCount > 0 && (
+    <span className="notification-badge">
+      {unreadCount}
+    </span>
+  )}
+</button>
+
+{showNotifications && (
+  <div className="notification-dropdown">
+    <div className="notification-dropdown-header">
+      <strong>Notifications</strong>
+    </div>
+
+    {notifications.length === 0 ? (
+  <div className="notification-empty">
+    No notifications
+  </div>
+) : (
+  notifications.map((notification) => (
+    <div
+      key={notification.id}
+      className={`notification-item ${
+        !notification.is_read ? "unread" : ""
+      }`}
+      onClick={async () => {
+        if (notification.is_read) return;
+
+        try {
+          await api.patch(
+            `notifications/${notification.id}/read/`
+          );
+
+          setNotifications((prev) =>
+            prev.map((item) =>
+              item.id === notification.id
+                ? { ...item, is_read: true }
+                : item
+            )
+          );
+
+          setUnreadCount((prev) => Math.max(prev - 1, 0));
+        } catch (error) {
+          console.error(
+            "Failed to mark notification as read:",
+            error
+          );
+        }
+      }}
+    >
+      <strong>{notification.title}</strong>
+
+      <p>{notification.message}</p>
+
+      <small>
+        {new Date(notification.created_at).toLocaleString()}
+      </small>
+    </div>
+  ))
+)}
+  </div>
+)}	   
+
             <div>
               <strong>
                 {user?.first_name || user?.username}

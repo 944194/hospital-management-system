@@ -2,6 +2,57 @@ import { useEffect, useState } from "react";
 import api from "../services/api";
 
 function PatientPrescriptions() {
+
+    const handleDownloadPrescription = async (
+    prescription
+  ) => {
+    try {
+      const response = await api.get(
+        `prescriptions/${prescription.id}/download/`,
+        {
+          responseType: "blob",
+        }
+      );
+
+      const blob = new Blob(
+        [response.data],
+        {
+          type: "application/pdf",
+        }
+      );
+
+      const url =
+        window.URL.createObjectURL(blob);
+
+      const link =
+        document.createElement("a");
+
+      link.href = url;
+
+      link.download =
+        `prescription_${prescription.prescription_id || prescription.id}.pdf`;
+
+      document.body.appendChild(link);
+
+      link.click();
+
+      link.remove();
+
+      window.URL.revokeObjectURL(url);
+
+    } catch (err) {
+
+      console.error(
+        "Prescription download error:",
+        err
+      );
+
+      setError(
+        "Unable to download prescription."
+      );
+    }
+  };
+
   const [prescriptions, setPrescriptions] = useState([]);
   const [filteredPrescriptions, setFilteredPrescriptions] = useState([]);
 
@@ -25,19 +76,60 @@ function PatientPrescriptions() {
           "prescriptions/"
         );
 
-        const sortedPrescriptions = [
-          ...response.data,
-        ].sort(
-          (a, b) => b.id - a.id
-        );
+        // ==========================================
+// GROUP MEDICINES BY PRESCRIPTION
+// ==========================================
 
-        setPrescriptions(
-          sortedPrescriptions
-        );
+const prescriptionGroups = new Map();
 
-        setFilteredPrescriptions(
-          sortedPrescriptions
-        );
+response.data.forEach(
+  (prescription) => {
+
+    const groupKey =
+      prescription.prescription_group ||
+      `${prescription.patient_id}-${prescription.medical_record_id}-${prescription.prescription_id}`;
+
+    if (
+      !prescriptionGroups.has(
+        groupKey
+      )
+    ) {
+      prescriptionGroups.set(
+        groupKey,
+        {
+          ...prescription,
+          medicines: [],
+        }
+      );
+    }
+
+    prescriptionGroups
+      .get(groupKey)
+      .medicines
+      .push(prescription);
+  }
+);
+
+// ==========================================
+// SORT GROUPS BY LATEST MEDICINE
+// ==========================================
+
+const sortedPrescriptions =
+  Array.from(
+    prescriptionGroups.values()
+  ).sort(
+    (a, b) =>
+      Number(b.id) -
+      Number(a.id)
+  );
+
+setPrescriptions(
+  sortedPrescriptions
+);
+
+setFilteredPrescriptions(
+  sortedPrescriptions
+);
       } catch (err) {
         console.error(
           "Prescriptions error:",
@@ -610,174 +702,298 @@ function PatientPrescriptions() {
                   <th>
                     Created At
                   </th>
+       
+                  <th>
+  Download
+</th>
 
                 </tr>
 
               </thead>
 
-              <tbody>
+<tbody>
 
-                {filteredPrescriptions.map(
-                  (prescription) => (
+  {filteredPrescriptions.map(
+    (prescription) => (
 
-                    <tr
-                      key={
-                        prescription.id
-                      }
-                    >
+      <tr
+        key={
+          prescription.prescription_group ||
+          prescription.id
+        }
+      >
 
-                      {/* Prescription ID */}
+        {/* PRESCRIPTION ID */}
 
-                      <td>
+        <td>
 
-                        <span className="patient-prescription-id">
-                          {
-                            prescription.prescription_id ||
-                            "-"
-                          }
-                        </span>
+          <span className="patient-prescription-id">
+            {prescription.prescription_id ||
+              "-"}
+          </span>
 
-                      </td>
+        </td>
 
-                      {/* Appointment ID */}
+        {/* APPOINTMENT ID */}
 
-                      <td>
+        <td>
 
-                        <strong>
-                          {
-                            prescription.appointment_id ||
-                            "-"
-                          }
-                        </strong>
+          <strong>
+            {prescription.appointment_id ||
+              "-"}
+          </strong>
 
-                      </td>
+        </td>
 
-                      {/* Medical Record ID */}
+        {/* MEDICAL RECORD ID */}
 
-                      <td>
+        <td>
 
-                        <strong>
-                          {
-                            prescription.medical_record_id ||
-                            "-"
-                          }
-                        </strong>
+          <strong>
+            {prescription.medical_record_id ||
+              "-"}
+          </strong>
 
-                      </td>
+        </td>
 
-                      {/* Patient */}
+        {/* PATIENT */}
 
-                      <td>
+        <td>
 
-                        <strong>
-                          {
-                            prescription.patient_id ||
-                            "-"
-                          }
-                        </strong>
+          <strong>
+            {prescription.patient_id ||
+              "-"}
+          </strong>
 
-                        <br />
+          <br />
 
-                        <span className="patient-prescription-secondary-text">
-                          {
-                            prescription.patient_name ||
-                            "-"
-                          }
-                        </span>
+          <span className="patient-prescription-secondary-text">
+            {prescription.patient_name ||
+              "-"}
+          </span>
 
-                      </td>
+        </td>
 
-                      {/* Doctor */}
+        {/* DOCTOR */}
 
-                      <td>
+        <td>
 
-                        <strong>
-                          {
-                            prescription.doctor_id ||
-                            "-"
-                          }
-                        </strong>
+          <strong>
+            {prescription.doctor_id ||
+              "-"}
+          </strong>
 
-                        <br />
+          <br />
 
-                        <span className="patient-prescription-secondary-text">
-                          {
-                            prescription.doctor_name ||
-                            "-"
-                          }
-                        </span>
+          <span className="patient-prescription-secondary-text">
+            {prescription.doctor_name ||
+              "-"}
+          </span>
 
-                      </td>
+        </td>
 
-                      {/* Medicine */}
+        {/* MEDICINES */}
 
-                      <td>
+        <td>
 
-                        <span className="patient-prescription-medicine">
-                          {
-                            prescription.medicine_name ||
-                            "-"
-                          }
-                        </span>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "12px",
+            }}
+          >
 
-                      </td>
+            {prescription.medicines?.map(
+              (medicine, index) => (
 
-                      {/* Dosage */}
+                <div
+                  key={
+                    medicine.id ||
+                    index
+                  }
+                >
 
-                      <td>
-                        {
-                          prescription.dosage ||
-                          "-"
-                        }
-                      </td>
+                  <strong>
+                    {index + 1}.{" "}
+                    {medicine.medicine_name ||
+                      "-"}
+                  </strong>
 
-                      {/* Frequency */}
+                </div>
 
-                      <td>
-                        {
-                          prescription.frequency ||
-                          "-"
-                        }
-                      </td>
+              )
+            )}
 
-                      {/* Duration */}
+          </div>
 
-                      <td>
-                        {
-                          prescription.duration ||
-                          "-"
-                        }
-                      </td>
+        </td>
 
-                      {/* Instructions */}
+        {/* DOSAGE */}
 
-                      <td>
-                        {
-                          prescription.instructions ||
-                          "-"
-                        }
-                      </td>
+        <td>
 
-                      {/* Created At */}
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "12px",
+            }}
+          >
 
-                      <td>
+            {prescription.medicines?.map(
+              (medicine, index) => (
 
-                        {
-                          prescription.created_at
-                            ? new Date(
-                                prescription.created_at
-                              ).toLocaleString()
-                            : "-"
-                        }
+                <div
+                  key={
+                    medicine.id ||
+                    index
+                  }
+                >
+                  {medicine.dosage ||
+                    "-"}
+                </div>
 
-                      </td>
+              )
+            )}
 
-                    </tr>
+          </div>
 
-                  )
-                )}
+        </td>
 
-              </tbody>
+        {/* FREQUENCY */}
+
+        <td>
+
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "12px",
+            }}
+          >
+
+            {prescription.medicines?.map(
+              (medicine, index) => (
+
+                <div
+                  key={
+                    medicine.id ||
+                    index
+                  }
+                >
+                  {medicine.frequency ||
+                    "-"}
+                </div>
+
+              )
+            )}
+
+          </div>
+
+        </td>
+
+        {/* DURATION */}
+
+        <td>
+
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "12px",
+            }}
+          >
+
+            {prescription.medicines?.map(
+              (medicine, index) => (
+
+                <div
+                  key={
+                    medicine.id ||
+                    index
+                  }
+                >
+                  {medicine.duration ||
+                    "-"}
+                </div>
+
+              )
+            )}
+
+          </div>
+
+        </td>
+
+        {/* INSTRUCTIONS */}
+
+        <td>
+
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "12px",
+            }}
+          >
+
+            {prescription.medicines?.map(
+              (medicine, index) => (
+
+                <div
+                  key={
+                    medicine.id ||
+                    index
+                  }
+                >
+                  {medicine.instructions ||
+                    "-"}
+                </div>
+
+              )
+            )}
+
+          </div>
+
+        </td>
+
+        {/* CREATED AT */}
+
+        <td>
+
+          {prescription.created_at
+            ? new Date(
+                prescription.created_at
+              ).toLocaleString()
+            : "-"}
+
+        </td>
+
+{/* DOWNLOAD */}
+
+<td>
+
+  <button
+    type="button"
+    className="patient-prescription-download-btn"
+    onClick={() =>
+      handleDownloadPrescription(
+        prescription
+      )
+    }
+  >
+    Download Prescription
+  </button>
+
+</td>
+
+      </tr>
+
+    )
+  )}
+
+</tbody>
+
 
             </table>
 

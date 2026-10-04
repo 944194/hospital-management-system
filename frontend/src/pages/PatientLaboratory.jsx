@@ -891,6 +891,8 @@ function PatientLaboratory() {
                       Remarks
                     </th>
 
+		    <th>Action</th>
+
                   </tr>
 
                 </thead>
@@ -1001,6 +1003,49 @@ function PatientLaboratory() {
                             "-"
                           }
                         </td>
+
+			
+<td>
+  <button className="patient-laboratory-download-btn"
+    type="button"
+    onClick={async () => {
+      try {
+        const response = await api.get(
+          `lab-results/${result.id}/download/`,
+          {
+            responseType: "blob",
+          }
+        );
+
+        const blob = new Blob(
+          [response.data],
+          { type: "application/pdf" }
+        );
+
+        const url = window.URL.createObjectURL(blob);
+
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `lab_result_${result.id}.pdf`;
+
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+
+        window.URL.revokeObjectURL(url);
+      } catch (error) {
+        console.error(
+          "Failed to download lab result:",
+          error
+        );
+      }
+    }}
+  >
+    Download PDF
+  </button>
+</td>
+
+
 
                       </tr>
 

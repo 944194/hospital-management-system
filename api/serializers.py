@@ -1,3 +1,4 @@
+
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from django.utils import timezone
@@ -6,7 +7,7 @@ from doctors.models import DoctorProfile, DoctorAvailability
 from patients.models import PatientProfile
 from appointments.models import Appointment
 from medical_records.models import MedicalRecord
-from prescriptions.models import Prescription
+from prescriptions.models import Prescription, PrescriptionGroup
 from billing.models import Bill
 from lab_tests.models import LabTest
 from lab_tests.models import LabResult
@@ -1076,6 +1077,8 @@ class PrescriptionSerializer(serializers.ModelSerializer):
     prescription_id = serializers.SerializerMethodField()
 
     def get_prescription_id(self, obj):
+        if obj.prescription_group:
+            return f"PRE{obj.prescription_group.id:04d}"
         return f"PRE{obj.id:04d}"
 
     doctor_name = serializers.CharField(
@@ -1099,6 +1102,7 @@ class PrescriptionSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'prescription_id',
+            'prescription_group',
             'medical_record',
             'medical_record_id',
             'patient_id',

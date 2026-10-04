@@ -915,7 +915,92 @@
   gap: 18px;
 }
 
-.user-area > div {
+.notification-button {
+  position: relative;
+  border: none;
+  background: transparent;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 6px;
+}
+
+.notification-button:hover {
+  transform: scale(1.1);
+}
+
+.notification-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 10px;
+  background: #dc2626;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.notification-dropdown {
+  position: absolute;
+  top: 60px;
+  right: 90px;
+  width: 360px;
+  max-height: 450px;
+  overflow-y: auto;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+}
+
+.notification-dropdown-header {
+  padding: 14px 16px;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 15px;
+}
+
+.notification-empty {
+  padding: 25px;
+  text-align: center;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.notification-item {
+  padding: 14px 16px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.notification-item.unread {
+  background: #eff6ff;
+}
+
+.notification-item strong {
+  display: block;
+  color: #1f2937;
+  font-size: 14px;
+  margin-bottom: 5px;
+}
+
+.notification-item p {
+  margin: 0 0 6px;
+  color: #4b5563;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.notification-item small {
+  color: #9ca3af;
+  font-size: 11px;
+}
+
+.user-area > div:not(.notification-dropdown) {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -1004,7 +1089,7 @@
     min-height: 64px;
   }
 
-  .user-area > div {
+  .user-area > div:not(.notification-dropdown) {
     display: none;
   }
 
@@ -6042,6 +6127,35 @@
   font-size: 12px;
 }
 
+.patient-prescription-download-btn {
+  min-height: 36px;
+  padding: 8px 14px;
+  border: 1px solid #ddd6fe;
+  border-radius: 9px;
+  background: #f5f3ff;
+  color: #6d28d9;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.patient-prescription-download-btn:hover {
+  background: #6d28d9;
+  border-color: #6d28d9;
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.patient-prescription-download-btn:active {
+  transform: translateY(0);
+}
+
 /* =========================================================
    EMPTY STATE
    ========================================================= */
@@ -6623,6 +6737,35 @@
 .patient-laboratory-secondary-text {
   color: #64748b;
   font-size: 12px;
+}
+
+.patient-laboratory-download-btn {
+  min-height: 36px;
+  padding: 8px 14px;
+  border: 1px solid #ddd6fe;
+  border-radius: 9px;
+  background: #f5f3ff;
+  color: #6d28d9;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.patient-laboratory-download-btn:hover {
+  background: #6d28d9;
+  border-color: #6d28d9;
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.patient-laboratory-download-btn:active {
+  transform: translateY(0);
 }
 
 /* =========================================================
@@ -16767,4 +16910,22 @@
     cursor: pointer;
     z-index: 2100;
   }
+}
+
+
+@media (max-width: 768px) {
+  .notification-dropdown {
+    position: fixed;
+    top: 65px;
+    right: 10px;
+    left: 10px;
+    width: auto;
+    max-width: none;
+  }
+}
+
+
+.notification-dropdown {
+  align-items: stretch;
+  flex-direction: column;
 }

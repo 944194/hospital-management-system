@@ -19,12 +19,14 @@ from .views import (
     doctor_availability_detail,
     prescription_list_create,
     prescription_detail,
+    prescription_download,
     bill_list_create,
     bill_detail,
     lab_test_list_create,
     lab_test_detail,
     lab_result_list_create,
     lab_result_detail,
+    lab_result_download,
     admin_dashboard,
     admission_list_create,
     admission_detail,
@@ -179,6 +181,12 @@ urlpatterns = [
     ),
 
     path(
+    'prescriptions/<int:pk>/download/',
+    prescription_download,
+    name='prescription_download'
+    ),
+
+    path(
     'bills/',
     bill_list_create,
     name='bill_list_create'
@@ -213,6 +221,13 @@ urlpatterns = [
     lab_result_detail,
     name='lab_result_detail'
     ),
+
+   
+    path(
+    'lab-results/<int:pk>/download/',
+    lab_result_download,
+    name='lab_result_download'
+    ), 
 
 
     path(
